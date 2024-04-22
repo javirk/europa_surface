@@ -3,7 +3,8 @@ import torch
 import wandb
 import random
 
-from src.models.utils import get_datasets, get_loss_fn, build_optimizer_scheduler, get_model
+from src.models.utils import (get_datasets, get_loss_fn, build_optimizer_scheduler, get_model,
+                              get_semanticseg_transformations)
 from src.models.eval import evaluate
 
 
@@ -11,7 +12,8 @@ def train(args, initial_epoch=0, wandb_step=0, fold_number=0):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     devices = list(range(torch.cuda.device_count()))
     args.fold_number = fold_number
-    dataset = get_datasets(args)
+    transforms = get_semanticseg_transformations()
+    dataset = get_datasets(args, transformations=transforms, shuffle_training=True)
     args.num_classes = dataset.train_dataset.num_classes
     args.ignore_index = dataset.train_dataset.ignore_index
 

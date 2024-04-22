@@ -102,7 +102,7 @@ class Galileo:
                 v2.RandomHorizontalFlip(),
                 # GaussianNoise(mean=0, sigma=(1, 5)),
                 v2.GaussianBlur(kernel_size=3),
-                v2.SanitizeBoundingBoxes(min_size=25),
+                # v2.SanitizeBoundingBoxes(min_size=25, labels_getter=None),
             ])
 
         self.train_dataset = GalileoDataset(root=location, split='train', fold_number=fold_number,
@@ -152,6 +152,7 @@ if __name__ == '__main__':
         v2.RandomHorizontalFlip(),
         # GaussianNoise(mean=0, sigma=(1, 5)),
         v2.GaussianBlur(kernel_size=3),
+        # v2.SanitizeBoundingBoxes(min_size=25, labels_getter=None),
     ])
 
     # trans = v2.RandAugment(num_ops=3)
