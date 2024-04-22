@@ -102,6 +102,7 @@ class Galileo:
                 v2.RandomHorizontalFlip(),
                 # GaussianNoise(mean=0, sigma=(1, 5)),
                 v2.GaussianBlur(kernel_size=3),
+                v2.SanitizeBoundingBoxes(min_size=25),
             ])
 
         self.train_dataset = GalileoDataset(root=location, split='train', fold_number=fold_number,
@@ -175,17 +176,17 @@ if __name__ == '__main__':
         # point[..., 0] = point[..., 0] * (im.shape[-1] / 1024)
         # point[..., 1] = point[..., 1] * (im.shape[-2] / 1024)
 
-        fix, ax = plt.subplots(1, 3)
-        ax[0].imshow(torchvision.utils.draw_bounding_boxes(im, box, colors='red').permute(1, 2, 0))
-        show_points(point, ax[0])
-        ax[1].imshow(m_box[0])
-        ax[2].imshow(m_point[0])
-
-        ax[0].set_title('Original image')
-        ax[1].set_title('Mask BB')
-        ax[2].set_title('Mask Point')
-        plt.show()
-        break
+        # fix, ax = plt.subplots(1, 3)
+        # ax[0].imshow(torchvision.utils.draw_bounding_boxes(im, box, colors='red').permute(1, 2, 0))
+        # show_points(point, ax[0])
+        # ax[1].imshow(m_box[0])
+        # ax[2].imshow(m_point[0])
+        #
+        # ax[0].set_title('Original image')
+        # ax[1].set_title('Mask BB')
+        # ax[2].set_title('Mask Point')
+        # plt.show()
+        # break
 
         # Save to a file
         # plt.savefig(f'tests_mask/{i}.png')

@@ -103,6 +103,8 @@ class DatasetBase(torch.utils.data.Dataset):
         # Make mask binary
         mask_binary = (mask > 0).float()
 
+        assert len(bounding_boxes) > 0, f'No bounding boxes found in {img_data}'
+
         # Select one bounding box at random. Zero all the values of the mask outside the bounding box
         bounding_box = bounding_boxes[np.random.choice(len(bounding_boxes))]
         mask_bb = self.isolate_mask_bb(bounding_box, mask)
