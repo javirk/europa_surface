@@ -7,6 +7,7 @@ from src.train_vanilla import train
 # from src.test_segmentation import testing
 from src.args import parse_arguments
 from src.models.utils import write_results, make_name, project_name_composer
+from src.test_segmentation import testing
 
 
 def main(args):
@@ -24,8 +25,8 @@ def main(args):
     print(f"Using device: {args.device}")
 
     if args.task == 'testing':
-        # testing(args)
-        raise NotImplementedError("Testing not implemented yet.")
+        testing(args)
+        # raise NotImplementedError("Testing not implemented yet.")
         # return
 
     # Training things
