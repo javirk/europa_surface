@@ -27,7 +27,7 @@ def main(args):
     if args.task == 'testing':
         testing(args)
         # raise NotImplementedError("Testing not implemented yet.")
-        # return
+        return
 
     # Training things
     if args.wandb:
