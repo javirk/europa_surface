@@ -55,6 +55,9 @@ def get_datasets(args, transformations=None, shuffle_training=True):
     if args.training_split == 'val':
         dataset.train_dataset = dataset.val_dataset
         dataset.train_loader = dataset.val_loader
+    elif args.training_split == 'test':
+        dataset.train_dataset = dataset.test_dataset
+        dataset.train_loader = dataset.test_loader
     if args.test_split == 'val':
         dataset.testtime_dataset = dataset.val_dataset
         dataset.testtime_loader = dataset.val_loader

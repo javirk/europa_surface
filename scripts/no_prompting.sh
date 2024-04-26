@@ -41,4 +41,5 @@
 PYTHONPATH="./" python main.py --batch-size=24 --lr=1e-4 --wd=0.01 --epochs=100 --workers 8 \
   --data-location=/storage/workspaces/artorg_aimi/ws_00000/javier/datasets/europa/dataset_224x224/ \
   --eval-datasets=GalileoDataset --train-dataset=Galileo --loss-fn=DiceLoss,CrossEntropyLoss --loss-weights=1,1 \
-  --wandb --exp-name=Galileo --save=./results/ --pretrained-model=./segment_anything/checkpoints/sam_vit_b_01ec64.pth
+  --wandb --exp-name=Galileo --save=./results/ --pretrained-model=./segment_anything/checkpoints/sam_vit_b_01ec64.pth \
+  --training-split=test
