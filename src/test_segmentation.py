@@ -48,7 +48,7 @@ def testing(args):
             # results_bb = eval_single_dataset(args, model, dataset, prompting='bb', embedding=False)
             # results_point = eval_single_dataset(args, model, dataset, prompting='point', embedding=False)
 
-            write_results(args, results_per_tile, f'{dataset_name}_{fold_ckpt}')
+            write_results(args, [results_per_tile], f'{dataset_name}_{fold_num}')
 
             results = {**results_none}
 
