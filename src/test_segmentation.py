@@ -44,7 +44,8 @@ def testing(args):
             model.to(device)
             model.eval()
 
-            results_none, results_per_tile = eval_single_dataset(args, model, dataset, prompting='none')
+            results_none, results_per_tile = eval_single_dataset(args, model, dataset, prompting='none',
+                                                                 save_output_mask=True)
             # results_bb = eval_single_dataset(args, model, dataset, prompting='bb', embedding=False)
             # results_point = eval_single_dataset(args, model, dataset, prompting='point', embedding=False)
 

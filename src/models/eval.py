@@ -1,5 +1,6 @@
 import os.path
 
+import matplotlib.pyplot as plt
 import wandb
 import torch
 from tqdm import tqdm
@@ -11,8 +12,9 @@ from src.models.utils import compute_class_weights
 from src.datasets.dataset_utils import none_collate
 
 
-def eval_single_dataset(args, model, dataset, prompting='point'):
+def eval_single_dataset(args, model, dataset, prompting='point', save_output_mask=False):
     print(f"Evaluating on {dataset} with {prompting} prompting")
+    os.makedirs(os.path.join(args.save, 'output_masks'), exist_ok=True)
     model.eval()
     device = args.device
     batch_size = args.batch_size
@@ -75,6 +77,11 @@ def eval_single_dataset(args, model, dataset, prompting='point'):
                                                                     reduction='weighted', class_weights=class_weights)
                 all_results['iou_macro'][name] = iou_im_macro.item()
                 all_results['iou_weight'][name] = iou_im_weight.item()
+                if save_output_mask:
+                    output_mask = output_mask[j].cpu().numpy()
+                    output_mask = output_mask.squeeze()
+                    save_path = os.path.join(args.save, 'output_masks', name + '.png')
+                    plt.imsave(save_path, output_mask, cmap='gray')
 
     tp = torch.cat(tp, dim=0)
     fp = torch.cat(fp, dim=0)
