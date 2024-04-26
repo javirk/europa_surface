@@ -393,11 +393,11 @@ def prepare_batch(args, batch, device='cpu'):
     return [inp, original_size, boxes, point], target, low_res_target
 
 
-def write_results(args, results):
+def write_results(args, results, name):
     results = {k: v for d in results for k, v in d.items()}
     for k in results.keys():
         df = pd.DataFrame.from_dict(results[k], orient='index')
-        df.to_csv(os.path.join(args.save, f'test_time_{k}.csv'))
+        df.to_csv(os.path.join(args.save, f'{name}_{k}.csv'))
 
 
 def project_name_composer(args):

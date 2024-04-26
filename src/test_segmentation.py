@@ -1,11 +1,9 @@
 import os
 import torch
-from segment_anything import sam_model_registry
 
 import src.datasets as datasets
-from src.models.sam_lora import LoRA_Sam
+from src.models.utils import get_model, write_results
 from src.models.eval import eval_single_dataset
-from src.models.utils import get_model
 
 
 def testing(args):
@@ -46,9 +44,11 @@ def testing(args):
             model.to(device)
             model.eval()
 
-            results_none, _ = eval_single_dataset(args, model, dataset, prompting='none')
+            results_none, results_per_tile = eval_single_dataset(args, model, dataset, prompting='none')
             # results_bb = eval_single_dataset(args, model, dataset, prompting='bb', embedding=False)
             # results_point = eval_single_dataset(args, model, dataset, prompting='point', embedding=False)
+
+            write_results(args, results_per_tile, f'{dataset_name}_{fold_ckpt}')
 
             results = {**results_none}
 

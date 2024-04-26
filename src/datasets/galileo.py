@@ -3,6 +3,7 @@ import torch
 import h5py
 import numpy as np
 from glob import glob
+from pathlib import Path
 from torchvision import tv_tensors
 from torchvision.transforms import v2
 from segment_anything.utils.transforms import ResizeLongestSide
@@ -76,7 +77,7 @@ class GalileoDataset(DatasetBase):
         return img, mask, bboxes
 
     def _get_name(self, img_data):
-        return os.path.join(img_data[0], str(img_data[1]))
+        return Path(img_data).stem
 
 
 class Galileo:
