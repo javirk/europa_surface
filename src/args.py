@@ -184,7 +184,7 @@ def parse_arguments():
     )
 
     parser.add_argument(
-        '--training_split',
+        '--training-split',
         choices=['train', 'val'],
         type=str,
         default='train',
