@@ -78,10 +78,10 @@ def eval_single_dataset(args, model, dataset, prompting='point', save_output_mas
                 all_results['iou_macro'][name] = iou_im_macro.item()
                 all_results['iou_weight'][name] = iou_im_weight.item()
                 if save_output_mask:
-                    output_mask = output_mask[j].cpu().numpy()
-                    output_mask = output_mask.squeeze()
+                    output_mask_j = output_mask[j].cpu().numpy()
+                    output_mask_j = output_mask_j.squeeze()
                     save_path = os.path.join(args.save, 'output_masks', name + '.png')
-                    plt.imsave(save_path, output_mask, cmap='gray')
+                    plt.imsave(save_path, output_mask_j, cmap='gray')
 
     tp = torch.cat(tp, dim=0)
     fp = torch.cat(fp, dim=0)
