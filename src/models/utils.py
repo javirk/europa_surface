@@ -29,12 +29,12 @@ def get_testtime_transformations():
 def get_semanticseg_transformations():
     return v2.Compose([
         v2.RandomApply([
+            v2.RandomHorizontalFlip(),
+            v2.RandomVerticalFlip(),
+            v2.RandomAffine(degrees=45, translate=(0.2, 0.2), scale=(0.8, 1.2), shear=16),
             v2.ColorJitter(brightness=0.7, contrast=0.7, saturation=0.7, hue=0),
             v2.GaussianBlur(kernel_size=(5, 5)),
             v2.RandomAdjustSharpness(sharpness_factor=2),
-            v2.RandomHorizontalFlip(),
-            v2.RandomVerticalFlip(),
-            v2.RandomRotation(degrees=90),
         ], p=0.8)
     ])
 

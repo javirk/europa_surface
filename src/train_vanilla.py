@@ -85,8 +85,6 @@ def train(args, initial_epoch=0, wandb_step=0, fold_number=0):
                  prompting_eval=['none'])
         evaluate(model, args, args.eval_datasets, {'epoch': epoch, 'step': wandb_step}, split='train',
                   prompting_eval=['none'])
-        evaluate(model, args, args.eval_datasets, {'epoch': epoch, 'step': wandb_step}, split='test',
-                  prompting_eval=['none'])
         # Saving models
         if args.save is not None and (epoch + 1) % args.write_freq == 0:
             os.makedirs(args.save, exist_ok=True)
