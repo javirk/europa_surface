@@ -49,12 +49,15 @@ def train(args, initial_epoch=0, wandb_step=0, fold_number=0):
                     low_res_target = data['mask_bb_downsampled'].to(device)
                     boxes = data['boxes'].to(device)
                     point = None
+                    target = data['mask_bb'].to(device)
                 else:
                     low_res_target = data['mask_point_downsampled'].to(device)
                     boxes = None
                     point = (data['point'].to(device), data['point_label'].to(device))
+                    target = data['mask_point'].to(device)
             else:
                 low_res_target = data['mask_downsampled'].to(device)
+                target = data['mask'].to(device)
                 boxes, point = None, None
 
             output = model(inp, original_size, boxes, point)
@@ -65,7 +68,7 @@ def train(args, initial_epoch=0, wandb_step=0, fold_number=0):
                 if 'iou' in name.lower():
                     loss_item = fn(output, low_res_target)
                 else:
-                    loss_item = fn(output['low_res_logits'], low_res_target)
+                    loss_item = fn(output['masks'], target)
                 losses[f'train/{name}'] = loss_item.item()
                 loss += loss_item * w
             loss.backward()

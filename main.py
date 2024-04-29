@@ -45,7 +45,7 @@ def main(args):
 
     if args.task == 'training':
         wandb_step = 0
-        for fold_number in range(4):  # The dataset splits
+        for fold_number in range(1):  # The dataset splits
             wandb_step = train(args, wandb_step=wandb_step, fold_number=fold_number)
     else:
         raise NotImplementedError
