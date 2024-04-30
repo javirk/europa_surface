@@ -140,7 +140,7 @@ class DatasetBase(torch.utils.data.Dataset):
 
         name = self._get_name(img_data)
 
-        return {'image': img, 'mask_bb': mask_bb.to(torch.long), 'mask_point': mask_point[0],
+        return {'image': img, 'mask_bb': mask_bb.to(torch.long), 'mask_point': mask_point[0].long(),
                 'mask_bb_downsampled': mask_bb_downsampled.to(torch.long),
                 'mask_point_downsampled': mask_point_downsampled.to(torch.long),
                 'boxes': bounding_box, 'point': point, 'point_label': point_label, 'name': name,
