@@ -46,20 +46,21 @@ def train(args, initial_epoch=0, wandb_step=0, fold_number=0):
             original_size = inp.shape[-2:]  # They should all have the same shape. We hope
             if args.prompting:
                 if random.random() < 0.5:
-                    low_res_target = data['mask_bb_downsampled'].to(device)
-                    boxes = data['boxes'].to(device)
-                    point = None
-                    target = data['mask_bb'][:, 0].to(device)
+                    low_res_target = data['mask_point_downsampled'].to(device)
+                    boxes = None
+                    point = (data['point'].to(device), data['point_label'].to(device))
+                    target = data['mask_point'][:, 0].to(device)
+                    # low_res_target = data['mask_bb_downsampled'].to(device)
+                    # boxes = data['boxes'].to(device)
+                    # point = None
+                    # target = data['mask_bb'][:, 0].to(device)
                 else:
                     # Combine prompting and no prompting
                     low_res_target = data['mask_downsampled'].to(device)
                     target = data['mask'][:, 0].to(device)
                     boxes, point = None, None
                 # else:
-                #     low_res_target = data['mask_point_downsampled'].to(device)
-                #     boxes = None
-                #     point = (data['point'].to(device), data['point_label'].to(device))
-                #     target = data['mask_point'][:, 0].to(device)
+
             else:
                 low_res_target = data['mask_downsampled'].to(device)
                 target = data['mask'][:, 0].to(device)
