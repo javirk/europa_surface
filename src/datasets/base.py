@@ -69,13 +69,13 @@ class DatasetBase(torch.utils.data.Dataset):
         mask[outside_bbox_mask] = self.ignore_index
         return mask
 
-    def isolate_mask_point(self, point, mask):
+    def isolate_mask_point(self, point, mask, instance_mask):
         if type(mask) == np.ndarray:
             mask = torch.from_numpy(mask)
         mask_zero = torch.zeros_like(mask)
         val_point = mask[0, point[1], point[0]]
-        mask_zero[mask == val_point] = val_point
-        # mask_zero[labeled_mask != val_point] = self.ignore_index
+        instance = instance_mask[0, point[1], point[0]]
+        mask_zero[instance_mask == instance] = val_point
         mask_zero = mask_zero.unsqueeze(0)
         return mask_zero
 
@@ -87,13 +87,13 @@ class DatasetBase(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         img_data = self.imgs[idx]  # path, slice number
-        img, mask, bounding_boxes = self._read_image(img_data)
+        img, mask, instance_mask, bounding_boxes = self._read_image(img_data)
 
         img = torch.repeat_interleave(img, repeats=3, dim=0)
         # img = img / 255.
 
         if self.transforms is not None:
-            img, mask, bounding_boxes = self.transforms(img, mask, bounding_boxes)
+            img, mask, instance_mask, bounding_boxes = self.transforms(img, mask, instance_mask, bounding_boxes)
 
         # Downsample mask
         mask_downsampled = torch.nn.functional.interpolate(mask[None],
@@ -128,7 +128,7 @@ class DatasetBase(torch.utils.data.Dataset):
             point_idx = np.random.choice(len(point[0]))
             point = torch.tensor(
                 [point[2][point_idx], point[1][point_idx]])  # mask is 1xHxW, so we discard the first dim.
-            mask_point = self.isolate_mask_point(point, mask)
+            mask_point = self.isolate_mask_point(point, mask, instance_mask)
             # Transform the point so that it can be used in SAM
             # point = self.sam_transform.apply_coords_torch(point, mask.shape[-2:]).unsqueeze(0)
             point_label = torch.tensor([1])  # Foreground pixel

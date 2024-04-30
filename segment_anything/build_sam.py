@@ -9,7 +9,7 @@ import torch
 from functools import partial
 from torch.nn import functional as F
 
-from .modeling import (ImageEncoderViT, MaskDecoder, PromptEncoder, Sam, TwoWayTransformer,TwoWayTransformerAdaption,
+from .modeling import (ImageEncoderViT, MaskDecoder, PromptEncoder, Sam, TwoWayTransformer, TwoWayTransformerAdaption,
                        ImageEncoderViTAdapter, TwoWayTransformerBiggerAdaption)
 
 

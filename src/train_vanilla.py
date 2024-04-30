@@ -45,7 +45,7 @@ def train(args, initial_epoch=0, wandb_step=0, fold_number=0):
             inp = data['image'].to(device)
             original_size = inp.shape[-2:]  # They should all have the same shape. We hope
             if args.prompting:
-                if random.random() < 0.5:
+                if random.random() < 0.:
                     low_res_target = data['mask_bb_downsampled'].to(device)
                     boxes = data['boxes'].to(device)
                     point = None

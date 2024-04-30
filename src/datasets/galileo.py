@@ -55,8 +55,12 @@ class GalileoDataset(DatasetBase):
             img = f['image'][:]
             # mask_ids = f['mask_ids'][:]  # [instances,]
             bboxes = f['bboxes'][:]  # [instances, 4]
-            mask = f['instance_mask'][:] if self.instance_segmentation else f['semantic_mask'][:]
+            sem_mask = f['instance_mask'][:] if self.instance_segmentation else f['semantic_mask'][:]
+            instance_mask = f['instance_mask'][:]
             # Either [H, W, instances] or [H, W]
+
+        # Instance segmentation is one-shot. Converting to normal
+        instance_mask = np.argmax(instance_mask, axis=-1)
 
         # if self.instance_segmentation:
         #     # Data is one-shot. Convert to normal
@@ -65,16 +69,18 @@ class GalileoDataset(DatasetBase):
         #     # We have to use the mask_ids on the mask. Mask comes with instance segmentation
         #     mask = mask * mask_ids
         #     mask = np.sum(mask, axis=-1)
-        assert np.max(mask) < 5, f"Max value in mask is {np.max(mask)}"
+        assert np.max(sem_mask) < 5, f"Max value in mask is {np.max(sem_mask)}"
 
-        mask = mask.astype(np.float32)
+        sem_mask = sem_mask.astype(np.float32)
+        instance_mask = instance_mask.astype(np.float32)
 
         # tv_tensors is weird. [None] can't be applied later, or it falls back to torch.Tensor:
         # https://pytorch.org/vision/main/auto_examples/transforms/plot_tv_tensors.html#why-is-this-happening
         img = tv_tensors.Image(img[None])
-        mask = tv_tensors.Mask(mask[None])
+        sem_mask = tv_tensors.Mask(sem_mask[None])
         bboxes = tv_tensors.BoundingBoxes(bboxes, format='xyxy', canvas_size=img.shape[-2:], dtype=torch.int64)
-        return img, mask, bboxes
+        instance_mask = tv_tensors.Mask(instance_mask[None])
+        return img, sem_mask, instance_mask, bboxes
 
     def _get_name(self, img_data):
         return Path(img_data).stem
