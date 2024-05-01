@@ -37,6 +37,7 @@ def train(args, initial_epoch=0, wandb_step=0, fold_number=0):
     evaluate(model, args, args.eval_datasets, {'epoch': initial_epoch, 'step': 0}, prompting_eval=['none'])
 
     for epoch in range(args.epochs):
+        point_prob = 0.5 + (0.5 * epoch / args.epochs)
         print(f'Epoch {epoch}')
         loss_sum = 0
         for i, data in enumerate(dataset.train_loader):
@@ -45,7 +46,7 @@ def train(args, initial_epoch=0, wandb_step=0, fold_number=0):
             inp = data['image'].to(device)
             original_size = inp.shape[-2:]  # They should all have the same shape. We hope
             if args.prompting:
-                if random.random() < 0.5:
+                if random.random() < point_prob:
                     low_res_target = data['mask_point_downsampled'].to(device)
                     boxes = None
                     point = (data['point'].to(device), data['point_label'].to(device))
@@ -93,7 +94,7 @@ def train(args, initial_epoch=0, wandb_step=0, fold_number=0):
         evaluate(model, args, args.eval_datasets, {'epoch': epoch, 'step': wandb_step}, split='val',
                  prompting_eval=['none'])
         evaluate(model, args, args.eval_datasets, {'epoch': epoch, 'step': wandb_step}, split='train',
-                  prompting_eval=['none'])
+                 prompting_eval=['none'])
         # Saving models
         if args.save is not None and (epoch + 1) % args.write_freq == 0:
             os.makedirs(args.save, exist_ok=True)
