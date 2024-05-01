@@ -11,6 +11,7 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     devices = list(range(torch.cuda.device_count()))
     args.fold_number = fold_number
+    args.num_iterations = 8
     transforms = get_semanticseg_transformations()
     dataset = get_datasets(args, transformations=transforms, shuffle_training=True)
     args.num_classes = dataset.train_dataset.num_classes
@@ -52,7 +53,7 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0):
 
             embeddings = model.encoder_step(inp)
 
-            for _ in range(8):
+            for _ in range(args.num_iterations):
                 output = model.from_embeddings(embeddings, original_size, boxes, point)
 
                 loss = 0
@@ -64,7 +65,9 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0):
                         loss_item = fn(output['masks'], target)
                     losses[f'train/{name}'] = loss_item.item()
                     loss += loss_item * w
-                loss.backward()
+
+                loss /= args.num_iterations
+                loss.backward(retain_graph=True)
 
                 # Sample new points
                 point = point_from_mask(target, output['masks'], point[0], device)
