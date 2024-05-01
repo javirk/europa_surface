@@ -495,10 +495,11 @@ def point_from_mask(input_mask, previous_prediction, previous_points, device):
 
         # Get the label of the point. 1 if it's a false negative, 0 if it's a false positive.
         # It will always be a false negative because we are forcing it before. TODO: Sample with probability
-        if input_mask[i, random_point[0, 0], random_point[0, 1]] == 0:
-            labels.append([0])
-        else:
-            labels.append([1])
+        # if input_mask[i, random_point[0, 0], random_point[0, 1]] == 0:
+        #     labels.append([0])
+        # else:
+        #     labels.append([1])
+        labels.append([1])
 
     return torch.tensor(new_points).to(device), torch.tensor(labels).to(device)
 
