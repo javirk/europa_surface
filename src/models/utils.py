@@ -475,6 +475,7 @@ def point_from_mask(input_mask, previous_prediction, previous_points, device):
     '''
     input_mask: [N, H, W]
     previous_prediction: [N, C, H, W]
+    previous_points: [N, 1, 2]
     '''
     new_points = []
     labels = []
@@ -486,19 +487,20 @@ def point_from_mask(input_mask, previous_prediction, previous_points, device):
         if error_indices.size(0) == 0:
             random_point = previous_points[i]
         else:
-            random_point = error_indices[torch.randint(0, error_indices.size(0), (1,))].squeeze()
+            random_point = error_indices[torch.randint(0, error_indices.size(0), (1,))]
             # These are (y, x). We have to transform them to (x, y)
             random_point = random_point.flip(0)
 
         new_points.append(random_point.tolist())
 
-        # Get the label of the point. 1 if it's a false negative, 0 if it's a false positive
-        if input_mask[i, random_point[0], random_point[1]] == 0:
-            labels.append(0)
+        # Get the label of the point. 1 if it's a false negative, 0 if it's a false positive.
+        # It will always be a false negative because we are forcing it before. TODO: Sample with probability
+        if input_mask[i, random_point[0, 0], random_point[0, 1]] == 0:
+            labels.append([0])
         else:
-            labels.append(1)
+            labels.append([1])
 
-    return torch.tensor(new_points).unsqueeze(1).to(device), torch.tensor(labels).unsqueeze(1).to(device)
+    return torch.tensor(new_points).to(device), torch.tensor(labels).to(device)
 
 
 if __name__ == '__main__':
