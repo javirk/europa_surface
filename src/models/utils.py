@@ -26,6 +26,7 @@ def get_testtime_transformations():
     ])
     # return v2.Identity()
 
+
 def get_semanticseg_transformations():
     return v2.Compose([
         v2.RandomApply([
@@ -165,6 +166,7 @@ class IoUHeadLoss(torch.nn.Module):
         mse_loss = torch.nn.functional.mse_loss(iou_pred, iou_real)
         return mse_loss
 
+
 class MultimaskIoUHeadLoss(torch.nn.Module):
     def __init__(self, reduction='mean', *args):
         super().__init__()
@@ -201,7 +203,6 @@ class FeedbackLoss(torch.nn.Module):
         iou_pred = sam_output['iou_predictions']
         div = self.kl_loss(predicted_mask.log_softmax(1), base_logits.softmax(1))
         return self.beta * div - iou_pred.mean()
-
 
 
 def get_loss_fn(args) -> Dict[(str, Callable)]:
@@ -470,19 +471,38 @@ def save_image(mask, input_image, dataset, save_path):
     save_img.save(save_path)
 
 
+def point_from_mask(input_mask, previous_prediction, previous_points, device):
+    '''
+    input_mask: [N, H, W]
+    previous_prediction: [N, C, H, W]
+    '''
+    new_points = []
+    labels = []
+    # Compute the error region. Only the foreground parts:
+    error_region = ((input_mask != previous_prediction.argmax(1)) * (input_mask != 0)).float()
+    # Sample a point from the error region tensor.
+    for i in range(input_mask.size(0)):
+        error_indices = torch.nonzero(error_region[i], as_tuple=False)
+        if error_indices.size(0) == 0:
+            random_point = previous_points[i]
+        else:
+            random_point = error_indices[torch.randint(0, error_indices.size(0), (1,))].squeeze()
+            # These are (y, x). We have to transform them to (x, y)
+            random_point = random_point.flip(0)
+
+        new_points.append(random_point.tolist())
+
+        # Get the label of the point. 1 if it's a false negative, 0 if it's a false positive
+        if input_mask[i, random_point[0], random_point[1]] == 0:
+            labels.append(0)
+        else:
+            labels.append(1)
+
+    return torch.tensor(new_points).unsqueeze(1).to(device), torch.tensor(labels).unsqueeze(1).to(device)
+
+
 if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-    from tqdm import tqdm
-
-    ep = 5
-    lr = ExponentialLRWarmup(torch.optim.SGD([torch.nn.Parameter(torch.randn(1))], lr=0.005),
-                             ep, 2)
-    # lr = torch.optim.lr_scheduler.CosineAnnealingLR(torch.optim.SGD([torch.nn.Parameter(torch.randn(1))], lr=0.005),
-    #                                                 ep)
-    lrs = []
-    for i in tqdm(range(ep)):
-        lrs.append(lr.get_lr()[0])
-        lr.step()
-
-    plt.plot(lrs)
-    plt.show()
+    mask = torch.randint(0, 2, (2, 512, 512))
+    previous_prediction = torch.randint(0, 2, (2, 2, 512, 512))
+    previous_points = torch.tensor([[0, 0], [0, 0]])
+    point_from_mask(mask, previous_prediction, previous_points)
