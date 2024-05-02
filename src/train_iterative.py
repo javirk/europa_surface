@@ -82,7 +82,7 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0):
                 loss.backward(retain_graph=True)
 
                 # Sample new points
-                point, point_label = point_from_mask(target, output['masks'], points[0], device)
+                point, point_label = point_from_mask(target, output['masks'], previous_points[0], device)
                 previous_points[0] = torch.concat((previous_points[0], point), dim=1)
                 previous_points[1] = torch.concat((previous_points[1], point_label), dim=1)
                 points = previous_points
