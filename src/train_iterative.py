@@ -54,13 +54,14 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0):
             none_target = data['mask'][:, 0].to(device)
             previous_points = points
 
-            embeddings = model.encoder_step(inp)
+            with torch.no_grad():
+                embeddings = model.encoder_step(inp)
 
             for i_iter in range(args.num_iterations):
                 target = point_target
                 low_res_target = point_low_res_target
 
-                if i_iter % (args.num_iterations // 2) == 0:
+                if i_iter % (args.num_iterations // 2) == 0:  # So the first and the half
                     # This is an iteration without point prompting
                     target = none_target
                     low_res_target = none_low_res_target
