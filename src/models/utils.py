@@ -240,13 +240,14 @@ def get_loss_fn(args) -> Dict[(str, Callable)]:
     return loss_fn
 
 
-def get_model(args, dataset, device='cpu'):
+def get_model(args, dataset, device='cpu', **kwargs):
     if args.pretrained_model is not None and os.path.isdir(args.pretrained_model):
         # Load the split
         ckpt = os.path.join(args.pretrained_model, f'split_{args.split_number}.pt')
     else:
         ckpt = args.pretrained_model
-    sam = sam_model_registry[args.model](checkpoint=ckpt, num_classes=args.num_classes, image_size=dataset.image_size)
+    sam = sam_model_registry[args.model](checkpoint=ckpt, num_classes=args.num_classes, image_size=dataset.image_size,
+                                         **kwargs)
 
     # if args.pretrained_model is not None:
     #     sam.load_state_dict(torch.load(args.pretrained_model, map_location=device))
