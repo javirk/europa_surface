@@ -475,7 +475,7 @@ def point_from_mask(input_mask, previous_prediction, previous_points, device):
     '''
     input_mask: [N, H, W]
     previous_prediction: [N, C, H, W]
-    previous_points: [N, 1, 2]
+    previous_points: [N, X, 2]
     '''
     new_points = []
     labels = []
@@ -485,7 +485,7 @@ def point_from_mask(input_mask, previous_prediction, previous_points, device):
     for i in range(input_mask.size(0)):
         error_indices = torch.nonzero(error_region[i], as_tuple=False)
         if error_indices.size(0) == 0:
-            random_point = previous_points[i]
+            random_point = previous_points[i, -1:]
         else:
             random_point = error_indices[torch.randint(0, error_indices.size(0), (1,))]
             # These are (y, x). We have to transform them to (x, y)

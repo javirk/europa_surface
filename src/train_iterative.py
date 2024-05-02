@@ -46,15 +46,27 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0):
             inp = data['image'].to(device)
             original_size = inp.shape[-2:]  # They should all have the same shape. We hope
 
-            low_res_target = data['mask_point_downsampled'].to(device)
+            point_low_res_target = data['mask_point_downsampled'].to(device)
+            none_low_res_target = data['mask_downsampled'].to(device)
             boxes = None
-            point = (data['point'].to(device), data['point_label'].to(device))
-            target = data['mask_point'][:, 0].to(device)
+            points = [data['point'].to(device), data['point_label'].to(device)]
+            point_target = data['mask_point'][:, 0].to(device)
+            none_target = data['mask'][:, 0].to(device)
+            previous_points = points
 
             embeddings = model.encoder_step(inp)
 
-            for _ in range(args.num_iterations):
-                output = model.from_embeddings(embeddings, original_size, boxes, point)
+            for i_iter in range(args.num_iterations):
+                target = point_target
+                low_res_target = point_low_res_target
+
+                if i_iter % (args.num_iterations // 2) == 0:
+                    # This is an iteration without point prompting
+                    target = none_target
+                    low_res_target = none_low_res_target
+                    points = None
+
+                output = model.from_embeddings(embeddings, original_size, boxes, points)
 
                 loss = 0
                 losses = {}
@@ -70,7 +82,10 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0):
                 loss.backward(retain_graph=True)
 
                 # Sample new points
-                point = point_from_mask(target, output['masks'], point[0], device)
+                point, point_label = point_from_mask(target, output['masks'], points[0], device)
+                previous_points[0] = torch.concat((previous_points[0], point), dim=1)
+                previous_points[1] = torch.concat((previous_points[1], point_label), dim=1)
+                points = previous_points
 
             optimizer.step()
             scheduler.step()
