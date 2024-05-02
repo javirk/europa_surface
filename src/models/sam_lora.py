@@ -4,6 +4,7 @@
 
 
 from segment_anything import sam_model_registry
+from typing import Tuple, Optional
 
 import math
 import torch
@@ -184,8 +185,23 @@ class LoRA_Sam(nn.Module):
         for w_B in self.w_Bs:
             nn.init.zeros_(w_B.weight)
 
-    def forward(self, image, original_size, boxes=None, points=None, fourier=None):
-        return self.sam(image, original_size, boxes, points, fourier)
+    def forward(self, image, original_size, boxes=None, points=None, mask_inputs=None):
+        return self.sam(image, original_size, boxes, points, mask_inputs)
+
+    def encoder_step(self, image):
+        with torch.no_grad():
+            input_images = self.sam.preprocess(image)
+        image_embeddings = self.sam.image_encoder(input_images)
+        return image_embeddings
+
+    def from_embeddings(self,
+            image_embeddings: torch.Tensor,
+            original_size: Tuple[int, int],
+            boxes: Optional[torch.Tensor] = None,
+            points: Optional[torch.Tensor] = None,
+            mask_inputs: Optional[torch.Tensor] = None,):
+        return self.sam.from_embeddings(image_embeddings, original_size, boxes, points, mask_inputs)
+
 
     def train_prompts(self):
         """
