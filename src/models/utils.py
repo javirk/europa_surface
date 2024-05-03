@@ -28,7 +28,6 @@ def get_testtime_transformations():
 
 
 def get_semanticseg_transformations():
-    return None
     return v2.Compose([
         v2.RandomApply([
             v2.RandomHorizontalFlip(),
