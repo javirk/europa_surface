@@ -13,7 +13,8 @@ from .modeling import (ImageEncoderViT, MaskDecoder, PromptEncoder, Sam, TwoWayT
                        ImageEncoderViTAdapter, TwoWayTransformerBiggerAdaption)
 
 
-def build_sam_vit_h(checkpoint=None, train_encoder=True, train_prompt_encoder=True, num_classes=3, image_size=512):
+def build_sam_vit_h(checkpoint=None, train_encoder=True, train_prompt_encoder=True, train_decoder=True, num_classes=3,
+                    image_size=512):
     return _build_sam(
         encoder_embed_dim=1280,
         encoder_depth=32,
@@ -22,6 +23,7 @@ def build_sam_vit_h(checkpoint=None, train_encoder=True, train_prompt_encoder=Tr
         checkpoint=checkpoint,
         train_encoder=train_encoder,
         train_prompt_encoder=train_prompt_encoder,
+        train_decoder=train_decoder,
         num_classes=num_classes,
         image_size=image_size
     )
@@ -30,7 +32,8 @@ def build_sam_vit_h(checkpoint=None, train_encoder=True, train_prompt_encoder=Tr
 build_sam = build_sam_vit_h
 
 
-def build_sam_vit_l(checkpoint=None, train_encoder=True, train_prompt_encoder=True, num_classes=3, image_size=512):
+def build_sam_vit_l(checkpoint=None, train_encoder=True, train_prompt_encoder=True, train_decoder=True, num_classes=3,
+                    image_size=512):
     return _build_sam(
         encoder_embed_dim=1024,
         encoder_depth=24,
@@ -39,6 +42,7 @@ def build_sam_vit_l(checkpoint=None, train_encoder=True, train_prompt_encoder=Tr
         checkpoint=checkpoint,
         train_encoder=train_encoder,
         train_prompt_encoder=train_prompt_encoder,
+        train_decoder=train_decoder,
         num_classes=num_classes,
         image_size=image_size
     )
