@@ -24,7 +24,7 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0):
     if args.wandb:
         wandb.config.update(args, allow_val_change=True)
 
-    model = get_model(args, dataset.train_dataset, train_encoder=False, train_prompt_encoder=True, train_decoder=False)
+    model = get_model(args, dataset.train_dataset, train_encoder=False, train_prompt_encoder=True, train_decoder=True)
     # model = torch.nn.DataParallel(model, device_ids=devices)
     model.to(device)
     model.train()
