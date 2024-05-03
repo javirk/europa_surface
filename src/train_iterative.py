@@ -74,7 +74,8 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0):
                     if 'iou' in name.lower():
                         loss_item = fn(output, low_res_target)
                     else:
-                        loss_item = fn(output['masks'], target)
+                        # loss_item = fn(output['masks'], target)
+                        loss_item = fn(output['low_res_logits'], low_res_target)
                     losses[f'train/{name}'] = loss_item.item()
                     loss += loss_item * w
 
