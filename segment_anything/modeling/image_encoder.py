@@ -122,7 +122,6 @@ class ImageEncoderViT(nn.Module):
         else:
             return x
 
-
 class Block(nn.Module):
     """Transformer blocks with support of window attention and residual propagation blocks"""
 
