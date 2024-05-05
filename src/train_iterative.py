@@ -9,6 +9,7 @@ from src.models.eval import evaluate
 
 def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    args.device = device
     devices = list(range(torch.cuda.device_count()))
     args.fold_number = fold_number
     args.num_iterations = 8
