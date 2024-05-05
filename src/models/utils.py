@@ -403,7 +403,7 @@ def write_results(args, results, name):
 
 
 def project_name_composer(args):
-    name = 'SAM'
+    name = 'SAM_EUROPA'
     ttda = ['test_time', 'test_time_rl', 'test_time_volume']
     if args.wandb_project != '':
         return args.wandb_project
