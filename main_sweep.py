@@ -10,7 +10,7 @@ def run():
 
     sp = []
     for node in node_list:
-        sp.append(subprocess.Popen(['srun',
+        sp.append(subprocess.run(['srun',
                                     '--nodes=1',
                                     '--ntasks=1',
                                     '-w',
