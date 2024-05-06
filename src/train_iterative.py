@@ -7,8 +7,11 @@ from src.models.utils import (get_datasets, get_loss_fn, build_optimizer_schedul
 from src.models.eval import evaluate
 
 
-def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_id=None):
+    if device_id is None:
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    else:
+        device = torch.device(f"cuda:{device_id}")
     args.device = device
     devices = list(range(torch.cuda.device_count()))
     args.fold_number = fold_number

@@ -22,16 +22,15 @@
 
 # maximum cores is 20 on all, 10 on long, 24 on gpu, 64 on phi!
 #SBATCH --cpus-per-task=8
-#SBATCH --nodes=2
+#SBATCH --nodes=1
 #SBATCH --ntasks=1
 ##SBATCH --ntasks-per-node=1
 
 # on gpu partition
-#SBATCH --gres=gpu:a100:1
+#SBATCH --gres=gpu:a100:2
 
 # Set the current working directory.
 # All relative paths used in the job script are relative to this directory
 #SBATCH --output=logs/slurm-%A.out
 
-# Main Python code below this line
-PYTHONPATH="./" python main_sweep.py
+wandb agent --count 2 javirk/SAM_EUROPA/em8dpl72

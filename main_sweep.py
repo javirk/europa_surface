@@ -1,23 +1,38 @@
+import os
+import argparse
+import torch
+import torch.multiprocessing as mp
+import hostlist
 import wandb
-import subprocess
 
-# Gather nodes allocated to current slurm job
-result = subprocess.run(['scontrol', 'show', 'hostnames'], stdout=subprocess.PIPE)
-node_list = result.stdout.decode('utf-8').split('\n')[:-1]
+from src.train_iterative import train_iterative
 
-def run():
-    wandb.init(project="SAM_EUROPA")
+wandb.login(key=os.environ.get("WANDB_API_KEY", ""))
 
-    sp = []
-    for node in node_list:
-        sp.append(subprocess.Popen(['srun',
-                                    '--nodes=1',
-                                    '--ntasks=1',
-                                    '-w',
-                                    node,
-                                    'scripts/wandb_agent.sh']))
-    exit_codes = [p.wait() for p in sp]  # wait for processes to finish
-    return exit_codes
+def get_args_parser():
+    parser = argparse.ArgumentParser(add_help=False)  # Add other arguments as neededreturn parser
+
 
 if __name__ == '__main__':
-    run()
+    parser = argparse.ArgumentParser("Distributed Optimization Script", parents=[get_args_parser()])
+    args = parser.parse_args()
+    mp.set_start_method("spawn", force=True)
+
+    NODE_ID = os.environ["SLURM_NODEID"]
+    rank = int(os.environ["SLURM_PROCID"])
+    local_rank = int(os.environ["SLURM_LOCALID"])
+    world_size = int(os.environ["SLURM_NTASKS"])
+    hostnames = hostlist.expand_hostlist(os.environ["SLURM_JOB_NODELIST"])
+    n_nodes = len(hostnames)
+    print(NODE_ID, rank, local_rank, world_size, hostnames)
+
+    # Handle SLURM_STEP_GPUS or fallback
+    gpu_ids = os.getenv("SLURM_STEP_GPUS")
+    if gpu_ids:
+        gpu_ids = gpu_ids.split(",")
+    else:  # Fallback: use torch to find visible GPUs if SLURM_STEP_GPUS is not set
+        gpu_ids = [str(i) for i in range(torch.cuda.device_count())]
+
+    wandb.init(config=args)
+
+    train_iterative(args, device_id=gpu_ids)
