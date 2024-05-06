@@ -12,10 +12,10 @@ def main(folder, base_file):
         base_text = f.read()
 
     config = {
-        'lrs': np.linspace(0.001, 5e-5, 5),
-        'loss_weights': ["1.,20.", "1.,100.", "1.,1.", "1.,2."],
-        'loss_fn': ['DiceLoss,FocalLoss', 'DiceLoss,CrossEntropyLoss'],
-        'batch_size': [8, 16, 24, 32, 64, 128]
+        'lr': np.linspace(0.001, 5e-5, 5),
+        'loss-weights': ["1.,20.", "1.,100.", "1.,1.", "1.,2."],
+        'loss-fn': ['DiceLoss,FocalLoss', 'DiceLoss,CrossEntropyLoss'],
+        'batch-size': [8, 16, 24, 32, 64, 128]
     }
 
     # combinations = product(config['lrs'], config['loss_weights'], config['loss_fn'], config['batch_size'])
