@@ -38,7 +38,7 @@ current_script=${script_files[$SLURM_ARRAY_TASK_ID-1]}
 # Check if the array task ID is within bounds
 if [ "$SLURM_ARRAY_TASK_ID" -le ${#script_files[@]} ]; then
     echo "Running: $current_script"
-    bash "$current_script"
+    sbatch "$current_script"
 else
     echo "Array task ID is out of bounds: $SLURM_ARRAY_TASK_ID"
 fi
