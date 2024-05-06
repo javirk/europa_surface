@@ -13,7 +13,7 @@
 #SBATCH --mem-per-cpu=4G
 
 # on gpu partition
-#SBATCH --gres=gpu:rtx3090:1
+#SBATCH --gres=gpu:a100:1
 
 # maximum cores is 20 on all, 10 on long, 24 on gpu, 64 on phi!
 #SBATCH --cpus-per-task=8
@@ -38,7 +38,7 @@ current_script=${script_files[$SLURM_ARRAY_TASK_ID-1]}
 # Check if the array task ID is within bounds
 if [ "$SLURM_ARRAY_TASK_ID" -le ${#script_files[@]} ]; then
     echo "Running: $current_script"
-    sbatch "$current_script"
+    bash "$current_script"
 else
     echo "Array task ID is out of bounds: $SLURM_ARRAY_TASK_ID"
 fi
