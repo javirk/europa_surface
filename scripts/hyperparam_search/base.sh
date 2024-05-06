@@ -41,5 +41,5 @@
 PYTHONPATH="./" python main.py --batch-size=$batch-size$ --lr=$lr$ --wd=0.01 --epochs=50 --workers 8 \
   --data-location=/storage/workspaces/artorg_aimi/ws_00000/javier/datasets/europa/dataset_224x224/ \
   --eval-datasets=GalileoDataset --train-dataset=Galileo --loss-fn=$loss-fn$ --loss-weights=$loss-weights$ \
-  --wandb --exp-name=Galileo --save=./results/ --pretrained-model=./ckpts/semseg.pt \
+  --wandb --exp-name=Galileo --pretrained-model=./ckpts/semseg.pt \
   --task training_iterative
