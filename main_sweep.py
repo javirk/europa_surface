@@ -6,16 +6,12 @@ import hostlist
 import wandb
 
 from src.train_iterative import train_iterative
+from src.args import parse_arguments
 
 wandb.login(key=os.environ.get("WANDB_API_KEY", ""))
 
-def get_args_parser():
-    parser = argparse.ArgumentParser(add_help=False)  # Add other arguments as neededreturn parser
-
-
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser("Distributed Optimization Script", parents=[get_args_parser()])
-    args = parser.parse_args()
+    args = parse_arguments()
     mp.set_start_method("spawn", force=True)
 
     NODE_ID = os.environ["SLURM_NODEID"]
