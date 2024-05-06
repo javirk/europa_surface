@@ -31,7 +31,7 @@
 
 script_dir="./scripts/hyperparam_search"
 
-script_files=($script_dir/bidmc_*.sh)
+script_files=($script_dir/point_*.sh)
 
 current_script=${script_files[$SLURM_ARRAY_TASK_ID-1]}
 
