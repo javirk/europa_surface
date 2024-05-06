@@ -10,12 +10,12 @@ def run():
 
     sp = []
     for node in node_list:
-        sp.append(subprocess.run(['srun',
+        sp.append(subprocess.Popen(['srun',
                                     '--nodes=1',
                                     '--ntasks=1',
                                     '-w',
                                     node,
-                                    'wandb agent javirk/SAM_EUROPA/3j9u13vs']))
+                                    'scripts/wandb_agent.sh']))
     exit_codes = [p.wait() for p in sp]  # wait for processes to finish
     return exit_codes
 
