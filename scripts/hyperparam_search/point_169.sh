@@ -40,6 +40,6 @@
 # Main Python code below this line
 PYTHONPATH="./" python main.py --batch-size=16 --lr=0.0002875 --wd=0.01 --epochs=50 --workers 8 \
   --data-location=/storage/workspaces/artorg_aimi/ws_00000/javier/datasets/europa/dataset_224x224/ \
-  --eval-datasets=GalileoDataset --train-dataset=Galileo --loss-fn=DiceLoss,FocalLoss --loss-weights=1.,1. \
+  --eval-datasets=GalileoDataset --train-dataset=Galileo --loss-fn=DiceLoss,FocalLoss,IoUHeadLoss --loss-weights=1.,1.,1. \
   --wandb --exp-name=Galileo --pretrained-model=./ckpts/semseg.pt \
   --task training_iterative
