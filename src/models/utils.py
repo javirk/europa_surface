@@ -145,7 +145,7 @@ class EntropyLoss(torch.nn.Module):
 
 
 class IoUHeadLoss(torch.nn.Module):
-    def __init__(self, config, reduction='mean'):
+    def __init__(self, config, reduction='none'):
         super().__init__()
         self.mode = 'multiclass' if config.num_classes > 1 else 'binary'
         self.num_classes = config.num_classes
