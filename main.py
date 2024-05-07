@@ -35,7 +35,7 @@ def main(args):
         project_name = project_name_composer(args)
         wandb.login(key=os.environ.get("WANDB_API_KEY", ""))
         wandb.init(
-            dir=os.path.join(args.save, 'wandb'),
+            # dir=os.path.join(args.save, 'wandb'),
             name=name,
             project=project_name,
             settings=wandb.Settings(start_method="spawn"),
