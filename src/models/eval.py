@@ -14,7 +14,8 @@ from src.datasets.dataset_utils import none_collate
 
 def eval_single_dataset(args, model, dataset, prompting='point', save_output_mask=False):
     print(f"Evaluating on {dataset} with {prompting} prompting")
-    os.makedirs(os.path.join(args.save, 'output_masks'), exist_ok=True)
+    if args.save:
+        os.makedirs(os.path.join(args.save, 'output_masks'), exist_ok=True)
     model.eval()
     device = args.device
     batch_size = args.batch_size
