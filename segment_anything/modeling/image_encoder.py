@@ -33,7 +33,6 @@ class ImageEncoderViT(nn.Module):
         rel_pos_zero_init: bool = True,
         window_size: int = 0,
         global_attn_indexes: Tuple[int, ...] = (),
-        return_interm_layers: bool = False,
     ) -> None:
         """
         Args:
@@ -55,7 +54,6 @@ class ImageEncoderViT(nn.Module):
         """
         super().__init__()
         self.img_size = img_size
-        self.return_interm_layers = return_interm_layers
 
         self.patch_embed = PatchEmbed(
             kernel_size=(patch_size, patch_size),
@@ -106,21 +104,33 @@ class ImageEncoderViT(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        
         x = self.patch_embed(x)
+
         if self.pos_embed is not None:
-            x = x + self.pos_embed
-        interm_embeddings = []
+            # by LBK EDIT
+            try:
+                x = x + self.pos_embed
+            except:
+                x = x + self.interpolate_pos_encoding(*x.shape[1:3])
+        
         for blk in self.blocks:
             x = blk(x)
-            if blk.window_size == 0:
-                interm_embeddings.append(x)
 
         x = self.neck(x.permute(0, 3, 1, 2))
 
-        if self.return_interm_layers:
-            return x, interm_embeddings
-        else:
-            return x
+        return x
+    
+    # by LBK EDIT
+    def interpolate_pos_encoding(self, h, w):
+        height, width = self.pos_embed.shape[1:3]
+
+        patch_pos_embed = nn.functional.interpolate(
+            self.pos_embed.permute(0, 3, 1, 2),
+            scale_factor=(h / height, w / width),
+            mode='bicubic',
+        ).permute(0, 2, 3, 1)
+        return patch_pos_embed
 
 class Block(nn.Module):
     """Transformer blocks with support of window attention and residual propagation blocks"""
@@ -168,14 +178,14 @@ class Block(nn.Module):
         self.mlp = MLPBlock(embedding_dim=dim, mlp_dim=int(dim * mlp_ratio), act=act_layer)
 
         self.window_size = window_size
-        self.input_size = input_size if window_size == 0 else (window_size, window_size)
-        self.dim = dim
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         shortcut = x
         x = self.norm1(x)
         # Window partition
         if self.window_size > 0:
+            orig_H, orig_W = x.shape[1], x.shape[2] # LBK
+            x = F.interpolate(x.permute(0,3,1,2), size=(64, 64), mode='bicubic').permute(0,2,3,1) # LBK
             H, W = x.shape[1], x.shape[2]
             x, pad_hw = window_partition(x, self.window_size)
 
@@ -183,6 +193,7 @@ class Block(nn.Module):
         # Reverse window partition
         if self.window_size > 0:
             x = window_unpartition(x, self.window_size, pad_hw, (H, W))
+            x = F.interpolate(x.permute(0,3,1,2), size=(orig_H, orig_W), mode='bicubic').permute(0,2,3,1) # LBK
 
         x = shortcut + x
         x = x + self.mlp(self.norm2(x))

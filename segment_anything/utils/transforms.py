@@ -56,7 +56,7 @@ class ResizeLongestSide:
         """
         Expects batched images with shape BxCxHxW and float format. This
         transformation may not exactly match apply_image. apply_image is
-        the transformation expected by the models.
+        the transformation expected by the model.
         """
         # Expects an image in BCHW format. May not exactly match apply_image.
         target_size = self.get_preprocess_shape(image.shape[2], image.shape[3], self.target_length)
@@ -72,10 +72,9 @@ class ResizeLongestSide:
         original image size in (H, W) format.
         """
         old_h, old_w = original_size
-        # new_h, new_w = self.get_preprocess_shape(
-        #     original_size[0], original_size[1], self.target_length
-        # )
-        new_h, new_w = self.target_length, self.target_length
+        new_h, new_w = self.get_preprocess_shape(
+            original_size[0], original_size[1], self.target_length
+        )
         coords = deepcopy(coords).to(torch.float)
         coords[..., 0] = coords[..., 0] * (new_w / old_w)
         coords[..., 1] = coords[..., 1] * (new_h / old_h)

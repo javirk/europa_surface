@@ -248,7 +248,8 @@ def get_model(args, dataset, device='cpu', **kwargs):
         ckpt = args.pretrained_model
     # sam = sam_model_registry[args.model](checkpoint=ckpt, num_classes=args.num_classes, image_size=dataset.image_size,
     #                                      **kwargs)
-    sam = sam_model_registry[args.model](checkpoint=ckpt, num_classes=args.num_classes)
+    sam = sam_model_registry[args.model](checkpoint=ckpt, num_classes=args.num_classes,
+                                         custom_img_size=dataset.image_size)
 
     # if args.pretrained_model is not None:
     #     sam.load_state_dict(torch.load(args.pretrained_model, map_location=device))

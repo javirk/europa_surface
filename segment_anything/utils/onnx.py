@@ -16,9 +16,9 @@ from .amg import calculate_stability_score
 
 class SamOnnxModel(nn.Module):
     """
-    This models should not be called directly, but is used in ONNX export.
+    This model should not be called directly, but is used in ONNX export.
     It combines the prompt encoder, mask decoder, and mask postprocessing of Sam,
-    with some functions modified to enable models tracing. Also supports extra
+    with some functions modified to enable model tracing. Also supports extra
     options controlling what information. See the ONNX export script for details.
     """
 

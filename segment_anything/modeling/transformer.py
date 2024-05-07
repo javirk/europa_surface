@@ -234,7 +234,7 @@ class Attention(nn.Module):
 
         # Get output
         out = attn @ v
-        out = self._recombine_heads(out)  # B x N_tokens x C
+        out = self._recombine_heads(out)
         out = self.out_proj(out)
 
         return out

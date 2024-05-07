@@ -196,7 +196,6 @@ class Sam(nn.Module):
         full_size = (self.image_encoder.img_size, self.image_encoder.img_size)
         with torch.set_grad_enabled(self.train_prompt_encoder):
             sparse_embeddings, dense_embeddings = self.prompt_encoder(
-                bs=image_embeddings.shape[0],
                 points=points,
                 boxes=boxes,
                 masks=mask_inputs,
@@ -209,7 +208,7 @@ class Sam(nn.Module):
             multimask_output=True,
         )
 
-        low_res_masks, iou_predictions, intermediate_rep = outputs_decoder
+        low_res_masks, iou_predictions = outputs_decoder
 
         masks = self.postprocess_masks(
             low_res_masks,
@@ -221,7 +220,6 @@ class Sam(nn.Module):
             'masks': masks,
             'iou_predictions': iou_predictions,
             'low_res_logits': low_res_masks,
-            'intermediate_rep': intermediate_rep,
             'image_embeddings': image_embeddings,
         }
         return outputs
