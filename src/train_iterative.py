@@ -21,10 +21,11 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_i
     args.num_classes = dataset.train_dataset.num_classes
     args.ignore_index = dataset.train_dataset.ignore_index
 
-    if 'fold_' in args.save:
-        args.save = args.save.replace(f'fold_{fold_number - 1}', f'fold_{fold_number}')
-    else:
-        args.save = os.path.join(args.save, f'fold_{fold_number}')
+    if args.save is not None:
+        if 'fold_' in args.save:
+            args.save = args.save.replace(f'fold_{fold_number - 1}', f'fold_{fold_number}')
+        else:
+            args.save = os.path.join(args.save, f'fold_{fold_number}')
     if args.wandb:
         wandb.config.update(args, allow_val_change=True)
 
