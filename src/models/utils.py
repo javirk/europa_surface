@@ -155,7 +155,7 @@ class IoUHeadLoss(torch.nn.Module):
     def forward(self, sam_output, target):
         # 1. Compute Pred - Target IoU
         # 2. MSE between predicted IoU and real
-        pred = sam_output['low_res_logits']
+        pred = sam_output['masks']
         iou_pred = sam_output['iou_predictions']
         with torch.no_grad():
             tp, fp, fn, tn = metrics.get_stats(pred.argmax(1), target, mode=self.mode, num_classes=self.num_classes,
