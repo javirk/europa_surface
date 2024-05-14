@@ -54,7 +54,7 @@ class GalileoDataset(DatasetBase):
             data = json.load(f)
         dataset_data = data[dataset_type][split]
         dataset_data = [os.path.join(root, x) for x in dataset_data]
-        return dataset_data[split]
+        return dataset_data
 
     def _read_image(self, img_data):
         """
