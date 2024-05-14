@@ -222,6 +222,13 @@ def parse_arguments():
         help="Use bbox prompting",
     )
 
+    parser.add_argument(
+        "--dataset-type",
+        default='all',
+        choices=['all', 'old', 'new'],
+        help="Which dataset to use",
+    )
+
     parsed_args = parser.parse_args()
 
     parsed_args.device = "cuda" if torch.cuda.is_available() else "cpu"

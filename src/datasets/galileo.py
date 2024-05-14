@@ -1,5 +1,6 @@
 import os
 import torch
+import json
 import h5py
 import numpy as np
 from glob import glob
@@ -25,12 +26,13 @@ class GalileoDataset(DatasetBase):
     ignore_index = 5
     image_size = 224
 
-    def __init__(self, root, split, transforms=None, bbox_shift=20, instance_segmentation=False, **kwargs):
+    def __init__(self, root, split, dataset_type='all', transforms=None, bbox_shift=20, instance_segmentation=False, **kwargs):
         assert split in ['train', 'val', 'test']
+        assert dataset_type in ['new', 'old', 'all']
         # self.root = root
         self.transforms = transforms
         self.split = split
-        self.imgs = self.get_imgs_names(root, split)
+        self.imgs = self.get_imgs_names(root, split, dataset_type)
 
         self.sam_transform = ResizeLongestSide(1024)  # Images are 1024x1024 in SAM
         self.bbox_shift = bbox_shift
@@ -38,11 +40,20 @@ class GalileoDataset(DatasetBase):
         self.instance_segmentation = instance_segmentation
 
     @staticmethod
-    def get_imgs_names(root, split):
+    def legacy_get_imgs_names(root, split):
         path = os.path.join(root, split)
         data = sorted(glob(os.path.join(path, '*.hdf5')))
         assert len(data) > 0, f'No data found'
         return data
+
+    @staticmethod
+    def get_imgs_names(root, split, dataset_type):
+        file = os.path.join(root, 'splits.json')
+        # Load the json file
+        with open(file, 'r') as f:
+            data = json.load(f)
+        dataset_data = data[dataset_type]
+        return dataset_data[split]
 
     def _read_image(self, img_data):
         """
@@ -91,6 +102,7 @@ class Galileo:
 
     def __init__(self,
                  location=os.path.expanduser('~/data'),
+                 dataset_type='all',
                  batch_size=128,
                  num_workers=8,
                  transformations=None,
@@ -112,10 +124,12 @@ class Galileo:
                 # v2.SanitizeBoundingBoxes(min_size=25, labels_getter=None),
             ])
 
-        self.train_dataset = GalileoDataset(root=location, split='train', fold_number=fold_number,
-                                            transforms=transformations)
-        self.val_dataset = GalileoDataset(root=location, split='val', fold_number=fold_number)
-        self.test_dataset = GalileoDataset(root=location, split='test', fold_number=fold_number)
+        self.train_dataset = GalileoDataset(root=location, split='train', dataset_type=dataset_type,
+                                            fold_number=fold_number, transforms=transformations)
+        self.val_dataset = GalileoDataset(root=location, split='val',  dataset_type=dataset_type,
+                                          fold_number=fold_number)
+        self.test_dataset = GalileoDataset(root=location, split='test',  dataset_type=dataset_type,
+                                           fold_number=fold_number)
 
         self.train_loader = torch.utils.data.DataLoader(
             self.train_dataset,
