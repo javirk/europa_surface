@@ -52,7 +52,8 @@ class GalileoDataset(DatasetBase):
         # Load the json file
         with open(file, 'r') as f:
             data = json.load(f)
-        dataset_data = data[dataset_type]
+        dataset_data = data[dataset_type][split]
+        dataset_data = [os.path.join(root, x) for x in dataset_data]
         return dataset_data[split]
 
     def _read_image(self, img_data):
