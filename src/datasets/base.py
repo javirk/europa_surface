@@ -140,9 +140,48 @@ class DatasetBase(torch.utils.data.Dataset):
 
         name = self._get_name(img_data)
 
-        return {'image': img, 'mask_bb': mask_bb.to(torch.long), 'mask_point': mask_point[0].long(),
-                'mask_bb_downsampled': mask_bb_downsampled.to(torch.long),
-                'mask_point_downsampled': mask_point_downsampled.to(torch.long),
-                'boxes': bounding_box, 'point': point, 'point_label': point_label, 'name': name,
-                'image_data': img_data, 'original_size': img.shape[-2:], 'mask': mask.long(),
-                'mask_downsampled': mask_downsampled}
+        return_dict = {'image': img, 'mask_bb': mask_bb.to(torch.long), 'mask_point': mask_point[0].long(),
+                       'mask_bb_downsampled': mask_bb_downsampled.to(torch.long),
+                       'mask_point_downsampled': mask_point_downsampled.to(torch.long),
+                       'boxes': bounding_box, 'point': point, 'point_label': point_label, 'name': name,
+                       'image_data': img_data, 'original_size': img.shape[-2:], 'mask': mask.long(),
+                       'mask_downsampled': mask_downsampled}
+        return return_dict
+
+
+def plot_return(d):
+    import torchvision
+    import matplotlib.pyplot as plt
+
+    def show_points(coords, ax, marker_size=200):
+        ax.scatter(coords[:, 0], coords[:, 1], color='green', marker='*', s=marker_size, edgecolor='white',
+                   linewidth=1.)
+
+    im = d['image']
+    m_box = d['mask_bb']
+    m_point = d['mask_point']
+    box = d['boxes']
+    point = d['point']
+    mask = d['mask']
+
+    # Bring back the box to the original size
+    box = box.reshape(-1, 2, 2)
+    box[..., 0] = box[..., 0] * (im.shape[-1] / 224)
+    box[..., 1] = box[..., 1] * (im.shape[-2] / 224)
+    box = box.reshape(-1, 4)
+    # Bring back the point to the original size
+    point[..., 0] = point[..., 0] * (im.shape[-1] / 224)
+    point[..., 1] = point[..., 1] * (im.shape[-2] / 224)
+
+    fix, ax = plt.subplots(2, 2)
+    ax[0, 0].imshow(torchvision.utils.draw_bounding_boxes(im, box, colors='red').permute(1, 2, 0))
+    show_points(point, ax[0, 0])
+    ax[0, 1].imshow(m_box[0])
+    ax[1, 0].imshow(m_point[0])
+    ax[1, 1].imshow(mask[0])
+
+    ax[0, 0].set_title('Original image')
+    ax[0, 1].set_title('Mask BB')
+    ax[1, 0].set_title('Mask Point')
+    ax[1, 1].set_title('Mask')
+    plt.show()

@@ -9,7 +9,7 @@ from torchvision import tv_tensors
 from torchvision.transforms import v2
 from segment_anything.utils.transforms import ResizeLongestSide
 
-from src.datasets.base import DatasetBase
+from src.datasets.base import DatasetBase, plot_return
 from src.datasets.transforms import GaussianNoise
 from src.datasets.dataset_utils import none_collate
 
@@ -26,7 +26,8 @@ class GalileoDataset(DatasetBase):
     ignore_index = 5
     image_size = 224
 
-    def __init__(self, root, split, dataset_type='all', transforms=None, bbox_shift=20, instance_segmentation=False, **kwargs):
+    def __init__(self, root, split, dataset_type='all', transforms=None, bbox_shift=20, instance_segmentation=False,
+                 **kwargs):
         assert split in ['train', 'val', 'test']
         assert dataset_type in ['new', 'old', 'all']
         # self.root = root
@@ -71,7 +72,11 @@ class GalileoDataset(DatasetBase):
             instance_mask = f['instance_mask'][:]
             # Either [H, W, instances] or [H, W]
 
-        # Instance segmentation is one-shot. Converting to normal
+        # Instance segmentation is one-shot. Converting to normal.
+        # Careful! There is not an instance for the background, so applying argmax directly is wrong
+        inverse_background_mask = np.sum(instance_mask, axis=-1)
+        background_mask = np.where(inverse_background_mask == 0, 1, 0)
+        instance_mask = np.concatenate([background_mask[:, :, None], instance_mask], axis=-1)
         instance_mask = np.argmax(instance_mask, axis=-1)
 
         # if self.instance_segmentation:
@@ -127,9 +132,9 @@ class Galileo:
 
         self.train_dataset = GalileoDataset(root=location, split='train', dataset_type=dataset_type,
                                             fold_number=fold_number, transforms=transformations)
-        self.val_dataset = GalileoDataset(root=location, split='val',  dataset_type=dataset_type,
+        self.val_dataset = GalileoDataset(root=location, split='val', dataset_type=dataset_type,
                                           fold_number=fold_number)
-        self.test_dataset = GalileoDataset(root=location, split='test',  dataset_type=dataset_type,
+        self.test_dataset = GalileoDataset(root=location, split='test', dataset_type=dataset_type,
                                            fold_number=fold_number)
 
         self.train_loader = torch.utils.data.DataLoader(
@@ -159,15 +164,8 @@ class Galileo:
 
 
 if __name__ == '__main__':
-    import torchvision
-    import matplotlib.pyplot as plt
     from torchvision.transforms import v2
     from torch.utils.data import DataLoader
-
-
-    def show_points(coords, ax, marker_size=200):
-        ax.scatter(coords[:, 0], coords[:, 1], color='green', marker='*', s=marker_size, edgecolor='white',
-                   linewidth=1.)
 
     trans = v2.Compose([
         v2.RandomRotation(20),
@@ -179,37 +177,13 @@ if __name__ == '__main__':
 
     # trans = v2.RandAugment(num_ops=3)
 
-    root_folder = '/Users/javier/Documents/datasets/europa/dataset_224x224/'
+    root_folder = '/Users/javier/Documents/datasets/europa/'
     dataset = GalileoDataset(root_folder, 'train', transforms=trans, fold_number=0, instance_segmentation=False)
     dataloader = DataLoader(dataset, batch_size=4, shuffle=False)
 
     for i, res in enumerate(dataset):
-        im = res['image']
-        m_box = res['mask_bb']
-        m_point = res['mask_point']
-        box = res['boxes']
-        point = res['point']
-
-        # Bring back the box to the original size
-        # box = box.reshape(-1, 2, 2)
-        # box[..., 0] = box[..., 0] * (im.shape[-1] / 1024)
-        # box[..., 1] = box[..., 1] * (im.shape[-2] / 1024)
-        # box = box.reshape(-1, 4)
-        # # Bring back the point to the original size
-        # point[..., 0] = point[..., 0] * (im.shape[-1] / 1024)
-        # point[..., 1] = point[..., 1] * (im.shape[-2] / 1024)
-
-        # fix, ax = plt.subplots(1, 3)
-        # ax[0].imshow(torchvision.utils.draw_bounding_boxes(im, box, colors='red').permute(1, 2, 0))
-        # show_points(point, ax[0])
-        # ax[1].imshow(m_box[0])
-        # ax[2].imshow(m_point[0])
-        #
-        # ax[0].set_title('Original image')
-        # ax[1].set_title('Mask BB')
-        # ax[2].set_title('Mask Point')
-        # plt.show()
-        # break
+        plot_return(res)
+        break
 
         # Save to a file
         # plt.savefig(f'tests_mask/{i}.png')
