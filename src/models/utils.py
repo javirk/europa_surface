@@ -163,7 +163,7 @@ class IoUHeadLoss(torch.nn.Module):
             iou_real = metrics.iou_score(tp, fp, fn, tn, reduction=self.reduction)
             iou_real = iou_real.to(iou_pred.device)
 
-        mse_loss = torch.nn.functional.mse_loss(iou_pred, iou_real)
+        mse_loss = torch.nn.functional.mse_loss(iou_pred, iou_real, reduction='sum')
         return mse_loss
 
 

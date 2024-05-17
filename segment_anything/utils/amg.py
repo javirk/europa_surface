@@ -87,6 +87,14 @@ def is_box_near_crop_edge(
     near_crop_edge = torch.logical_and(near_crop_edge, ~near_image_edge)
     return torch.any(near_crop_edge, dim=1)
 
+def is_box_empty(boxes: torch.Tensor) -> torch.Tensor:
+    """
+    Empty boxes are [0,0,0,0]. Format: [B, 4]
+    """
+    sum_boxes = boxes.sum(1, keepdim=True)
+    return torch.any(sum_boxes == 0, dim=1)
+
+
 
 def box_xyxy_to_xywh(box_xyxy: torch.Tensor) -> torch.Tensor:
     box_xywh = deepcopy(box_xyxy)
@@ -273,8 +281,9 @@ def remove_small_regions(
     """
     import cv2  # type: ignore
 
-    assert mode in ["holes", "islands"]
+    assert mode in ["holes", "islands", "islands_hard"]
     correct_holes = mode == "holes"
+    hard_islands = mode == "islands_hard"
     working_mask = (correct_holes ^ mask).astype(np.uint8)
     n_labels, regions, stats, _ = cv2.connectedComponentsWithStats(working_mask, 8)
     sizes = stats[:, -1][1:]  # Row 0 is background label
@@ -285,7 +294,7 @@ def remove_small_regions(
     if not correct_holes:
         fill_labels = [i for i in range(n_labels) if i not in fill_labels]
         # If every region is below threshold, keep largest
-        if len(fill_labels) == 0:
+        if len(fill_labels) == 0 and not hard_islands:
             fill_labels = [int(np.argmax(sizes)) + 1]
     mask = np.isin(regions, fill_labels)
     return mask, True

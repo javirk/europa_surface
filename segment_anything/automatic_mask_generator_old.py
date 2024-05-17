@@ -29,7 +29,6 @@ from .utils.amg import (
     uncrop_boxes_xyxy,
     uncrop_masks,
     uncrop_points,
-    is_box_empty,
 )
 
 
@@ -190,7 +189,6 @@ class SamAutomaticMaskGenerator:
                 "point_coords": [mask_data["points"][idx].tolist()],
                 "stability_score": mask_data["stability_score"][idx].item(),
                 "crop_box": box_xyxy_to_xywh(mask_data["crop_boxes"][idx]).tolist(),
-                "class_id": mask_data['idxs'][idx]
             }
             curr_anns.append(ann)
 
@@ -216,7 +214,7 @@ class SamAutomaticMaskGenerator:
             keep_by_nms = batched_nms(
                 data["boxes"].float(),
                 scores,
-                idxs=data['idxs'],  # categories
+                torch.zeros_like(data["boxes"][:, 0]),  # categories
                 iou_threshold=self.crop_nms_thresh,
             )
             data.filter(keep_by_nms)
@@ -253,7 +251,7 @@ class SamAutomaticMaskGenerator:
         keep_by_nms = batched_nms(
             data["boxes"].float(),
             data["iou_preds"],
-            idxs=data['idxs'],  # categories
+            torch.zeros_like(data["boxes"][:, 0]),  # categories
             iou_threshold=self.box_nms_thresh,
         )
         data.filter(keep_by_nms)
@@ -284,17 +282,12 @@ class SamAutomaticMaskGenerator:
             multimask_output=True,
             return_logits=True,
         )
-        # Remove the background predictions
-        masks = masks[:, 1:]
-        iou_preds = iou_preds[:, 1:]
-        idxs = torch.arange(1, masks.shape[1] + 1).repeat(masks.shape[0], 1)
 
         # Serialize predictions and store in MaskData
         data = MaskData(
             masks=masks.flatten(0, 1),
             iou_preds=iou_preds.flatten(0, 1),
             points=torch.as_tensor(points.repeat(masks.shape[1], axis=0)),
-            idxs=idxs.flatten(0, 1)
         )
         del masks
 
@@ -304,23 +297,19 @@ class SamAutomaticMaskGenerator:
             data.filter(keep_mask)
 
         # Calculate stability score
-        # data["stability_score"] = calculate_stability_score(
-        #     data["masks"], self.predictor.model.mask_threshold, self.stability_score_offset
-        # )
-        # if self.stability_score_thresh > 0.0:
-        #     keep_mask = data["stability_score"] >= self.stability_score_thresh
-        #     data.filter(keep_mask)
-        data['stability_score'] = torch.ones_like(data['iou_preds'])
+        data["stability_score"] = calculate_stability_score(
+            data["masks"], self.predictor.model.mask_threshold, self.stability_score_offset
+        )
+        if self.stability_score_thresh > 0.0:
+            keep_mask = data["stability_score"] >= self.stability_score_thresh
+            data.filter(keep_mask)
 
         # Threshold masks and calculate boxes
         data["masks"] = data["masks"] > self.predictor.model.mask_threshold
         data["boxes"] = batched_mask_to_box(data["masks"])
 
         # Filter boxes that touch crop boundaries
-        keep_mask_boundaries = ~is_box_near_crop_edge(data["boxes"], crop_box, [0, 0, orig_w, orig_h])
-        # Filter empty boxes
-        keep_mask_empty = ~is_box_empty(data["boxes"])
-        keep_mask = keep_mask_empty * keep_mask_boundaries
+        keep_mask = ~is_box_near_crop_edge(data["boxes"], crop_box, [0, 0, orig_w, orig_h])
         if not torch.all(keep_mask):
             data.filter(keep_mask)
 
@@ -356,8 +345,6 @@ class SamAutomaticMaskGenerator:
             unchanged = not changed
             mask, changed = remove_small_regions(mask, min_area, mode="islands")
             unchanged = unchanged and not changed
-            mask, changed = remove_small_regions(mask, min_area, mode="islands_hard")
-            unchanged = unchanged and not changed
 
             new_masks.append(torch.as_tensor(mask).unsqueeze(0))
             # Give score=0 to changed masks and score=1 to unchanged masks
@@ -370,7 +357,7 @@ class SamAutomaticMaskGenerator:
         keep_by_nms = batched_nms(
             boxes.float(),
             torch.as_tensor(scores),
-            idxs=torch.as_tensor(mask_data['idxs']),  # categories
+            torch.zeros_like(boxes[:, 0]),  # categories
             iou_threshold=nms_thresh,
         )
 
