@@ -163,7 +163,9 @@ class IoUHeadLoss(torch.nn.Module):
             iou_real = metrics.iou_score(tp, fp, fn, tn, reduction=self.reduction)
             iou_real = iou_real.to(iou_pred.device)
 
-        mse_loss = torch.nn.functional.mse_loss(iou_pred, iou_real, reduction='mean')
+        mse_loss = torch.nn.functional.mse_loss(iou_pred, iou_real, reduction='none')  # [N, B]
+        # Sum over the classes, then mean over batch. This gives more weight to the incorrect classes
+        mse_loss = mse_loss.sum(1).mean()
         return mse_loss
 
 
