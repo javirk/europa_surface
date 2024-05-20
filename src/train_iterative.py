@@ -81,7 +81,11 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_i
                     else:
                         # loss_item = fn(output['masks'], target)
                         loss_item = fn(output['low_res_logits'], low_res_target)
-                    losses[f'train/{name}'] = loss_item.item()
+
+                    if f'train/{name}' not in losses:
+                        losses[f'train/{name}'] = loss_item.item() / args.num_iterations
+                    else:
+                        losses[f'train/{name}'] += loss_item.item() / args.num_iterations
                     loss += loss_item * w
 
                 loss /= args.num_iterations
