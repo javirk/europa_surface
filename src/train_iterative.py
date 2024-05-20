@@ -106,7 +106,7 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_i
         current_epoch = epoch + initial_epoch + 1
 
         if args.wandb:
-            wandb.log({'train/loss': loss_sum / num_batches}, step=wandb_step)
+            wandb.log({'train/loss': loss_sum / num_batches, **losses}, step=wandb_step)
 
         evaluate(model, args, args.eval_datasets, {'epoch': epoch, 'step': wandb_step}, split='val',
                  prompting_eval=['point'])
