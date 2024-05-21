@@ -190,7 +190,8 @@ class SamAutomaticMaskGenerator:
                 "point_coords": [mask_data["points"][idx].tolist()],
                 "stability_score": mask_data["stability_score"][idx].item(),
                 "crop_box": box_xyxy_to_xywh(mask_data["crop_boxes"][idx]).tolist(),
-                "class_id": mask_data['idxs'][idx]
+                "class_id": mask_data['idxs'][idx],
+                "logits_mask": mask_data['logits'][idx]
             }
             curr_anns.append(ann)
 
@@ -313,6 +314,7 @@ class SamAutomaticMaskGenerator:
         data['stability_score'] = torch.ones_like(data['iou_preds'])
 
         # Threshold masks and calculate boxes
+        data['logits'] = data['masks'].clone()
         data["masks"] = data["masks"] > self.predictor.model.mask_threshold
         data["boxes"] = batched_mask_to_box(data["masks"])
 
@@ -381,5 +383,9 @@ class SamAutomaticMaskGenerator:
                 mask_data["rles"][i_mask] = mask_to_rle_pytorch(mask_torch)[0]
                 mask_data["boxes"][i_mask] = boxes[i_mask]  # update res directly
         mask_data.filter(keep_by_nms)
+
+        # Filter empty boxes
+        keep_mask_empty = ~is_box_empty(mask_data["boxes"])
+        mask_data.filter(keep_mask_empty)
 
         return mask_data

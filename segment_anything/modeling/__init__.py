@@ -10,4 +10,4 @@ from .mask_decoder import MaskDecoder, MaskDecoderHQ
 from .prompt_encoder import PromptEncoder, PromptFourierEncoder, PromptDomainEncoder
 from .transformer import TwoWayTransformer
 from .noencoder_sam import NoEncoderSam
-from .transformer_adaption import TwoWayTransformerAdaption, ImageEncoderViTAdapter, TwoWayTransformerBiggerAdaption
+from .tiny_vit import TinyViT

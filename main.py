@@ -9,6 +9,7 @@ from src.args import parse_arguments
 from src.models.utils import write_results, make_name, project_name_composer
 from src.test_segmentation import testing
 from src.train_iterative import train_iterative
+from src.generate_instance_segmentation import instance_seg
 
 
 def main(args):
@@ -28,6 +29,8 @@ def main(args):
     if args.task == 'testing':
         testing(args)
         # raise NotImplementedError("Testing not implemented yet.")
+    elif args.task == 'instance_testing':
+        instance_seg(args)
         return
 
     # Training things
