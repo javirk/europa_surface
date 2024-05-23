@@ -1,6 +1,7 @@
 import os
 import torch
 import wandb
+from random import random
 
 from src.models.utils import (get_datasets, get_loss_fn, build_optimizer_scheduler, get_model,
                               get_semanticseg_transformations, point_from_mask)
@@ -15,7 +16,7 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_i
     args.device = device
     devices = list(range(torch.cuda.device_count()))
     args.fold_number = fold_number
-    args.num_iterations = 8
+    args.num_iterations = 5
     transforms = get_semanticseg_transformations()
     dataset = get_datasets(args, transformations=transforms, shuffle_training=True)
     args.num_classes = dataset.train_dataset.num_classes
@@ -53,11 +54,15 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_i
 
             point_low_res_target = data['mask_point_downsampled'].to(device)
             none_low_res_target = data['mask_downsampled'].to(device)
-            boxes = None
-            points = [data['point'].to(device), data['point_label'].to(device)]
+            if random() < 0.5:
+                boxes = data['boxes'].to(device)
+                points = None
+            else:
+                boxes = None
+                points = [data['point'].to(device), data['point_label'].to(device)]
             point_target = data['mask_point'][:, 0].to(device)
             none_target = data['mask'][:, 0].to(device)
-            previous_points = points
+            previous_points = [data['point'].to(device), data['point_label'].to(device)]
 
             embeddings = model.encoder_step(inp)
 

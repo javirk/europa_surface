@@ -165,7 +165,8 @@ class IoUHeadLoss(torch.nn.Module):
 
         mse_loss = torch.nn.functional.mse_loss(iou_pred, iou_real, reduction='none')  # [N, B]
         # Sum over the classes, then mean over batch. This gives more weight to the incorrect classes
-        mse_loss = mse_loss.sum(1).mean()
+        # mse_loss = mse_loss.sum(1).mean()
+        mse_loss = mse_loss.mean()
         return mse_loss
 
 

@@ -93,7 +93,7 @@ def instance_seg(args):
     for i, dataset_name in enumerate(args.eval_datasets):
         dataset_class = getattr(datasets, dataset_name)
         # Fold number is not important becase the test set is the same for all folds
-        dataset = dataset_class(root=args.data_location, split='test', fold_number=0)
+        dataset = dataset_class(root=args.data_location, split='train', fold_number=0)
         args.num_classes = dataset.num_classes
         args.ignore_index = dataset.ignore_index
 
@@ -120,14 +120,14 @@ def instance_seg(args):
                 sam_result = mask_generator.generate(inp)
 
                 sorted_generated_masks = sorted(
-                    sam_result, key=lambda x: x["area"], reverse=True
+                    sam_result, key=lambda x: x["predicted_iou"], reverse=True
                 )
 
                 mask = np.array([mask["segmentation"] for mask in sorted_generated_masks])
                 labels = np.array([mask['class_id'] for mask in sorted_generated_masks])
                 logits_mask = np.array([mask['logits_mask'] for mask in sorted_generated_masks])
                 bbox = np.array([box_xywh_to_xyxy(mask['bbox']) for mask in sorted_generated_masks])
-                scores = np.array([mask['predicted_iou'] for mask in sorted_generated_masks])
+                scores = np.array([min(1, mask['predicted_iou']) for mask in sorted_generated_masks])
 
                 # Save masks, bboxes, labels and scores into hdf5py
                 with h5py.File(os.path.join(args.save, name + '.hdf5'), "w") as f:
