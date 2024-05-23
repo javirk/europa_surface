@@ -36,6 +36,7 @@ def get_semanticseg_transformations():
             # v2.ColorJitter(brightness=0.7, contrast=0.7, saturation=0.7, hue=0),
             v2.GaussianBlur(kernel_size=(5, 5)),
             v2.RandomAdjustSharpness(sharpness_factor=2),
+            v2.SanitizeBoundingBoxes()
         ], p=0.5)
     ])
 

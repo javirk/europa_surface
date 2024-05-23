@@ -182,8 +182,9 @@ if __name__ == '__main__':
     dataloader = DataLoader(dataset, batch_size=4, shuffle=False)
 
     for i, res in enumerate(dataset):
-        plot_return(res)
-        break
+        continue
+        # plot_return(res)
+        # break
 
         # Save to a file
         # plt.savefig(f'tests_mask/{i}.png')

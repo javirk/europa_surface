@@ -99,6 +99,9 @@ class DatasetBase(torch.utils.data.Dataset):
         if self.transforms is not None:
             img, mask, instance_mask, bounding_boxes = self.transforms(img, mask, instance_mask, bounding_boxes)
 
+        if len(mask.unique()) == 1:
+            return None
+
         # Downsample mask
         mask_downsampled = torch.nn.functional.interpolate(mask[None],
                                                            size=(self.downsampling_size, self.downsampling_size),

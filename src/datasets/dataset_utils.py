@@ -9,6 +9,7 @@ def none_collate(batch):
     :param batch: list[Dict()]
     :return:
     """
+    batch = list(filter(lambda x: x is not None, batch))
     batch = [{key: value for key, value in b.items() if value is not None} for b in batch]
     return torch.utils.data.dataloader.default_collate(batch)
 
