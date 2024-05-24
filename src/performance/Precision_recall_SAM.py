@@ -352,22 +352,20 @@ for datafolder in datafolders:
         axs.set_yticks(np.arange(0,1.1,0.1))
         axs.set_ylim(0,1.05)
         axs.legend(custom_lines, list(cd.values()) + [r'score $\leq$ 0.5'])
-        fig.savefig((titaniach / prec_rec_savepath).joinpath('precision-recall_curve_T{}_A{}_M{}_for_{}_{}.pdf'.format(t_ind, a_ind, m_ind, itd[ioutype], subset)))
-        # the line below was inserted for revision1
-        fig.savefig((titaniach / prec_rec_savepath).joinpath('precision-recall_curve_for_{}.pdf'.format(itd[ioutype])), dpi=300, bbox_inches='tight')
+        fig.savefig((titaniach / prec_rec_savepath).joinpath('precision-recall_curve_T{}_A{}_M{}_for_{}_{}_{}.pdf'.format(t_ind, a_ind, m_ind, itd[ioutype], subset, datafolder)))
         fig.show()
 
 
-# precision and recall at score of 0.5 and IoU threshhold of 0.5
-# to dataframe
-df = pd.DataFrame([np.array(bbox_prc, dtype='float64'), bbox_rec, np.array(masks_prc, dtype='float64'), masks_rec]).T
-df.columns = ['bbox_precision', 'bbox_recall', 'masks_precision', 'masks_recall']
-# add 'average' row by calculating the mean along the axis 0
-df.loc[len(df.index)] = df.mean(axis=0)
-# add indices
-df.index = ['bands', 'double ridges', 'ridge complexes', 'undiff. lineae', 'average']
-# save as csv
-df.to_csv((titaniach / prec_rec_savepath).joinpath('precision_recall_at_score0.5_IoU0.5__T{}_A{}_M{}_.csv'.format(t_ind, a_ind, m_ind, subset)))
+    # precision and recall at score of 0.5 and IoU threshhold of 0.5
+    # to dataframe
+    df = pd.DataFrame([np.array(bbox_prc, dtype='float64'), bbox_rec, np.array(masks_prc, dtype='float64'), masks_rec]).T
+    df.columns = ['bbox_precision', 'bbox_recall', 'masks_precision', 'masks_recall']
+    # add 'average' row by calculating the mean along the axis 0
+    df.loc[len(df.index)] = df.mean(axis=0)
+    # add indices
+    df.index = ['bands', 'double ridges', 'ridge complexes', 'undiff. lineae', 'average']
+    # save as csv
+    df.to_csv((titaniach / prec_rec_savepath).joinpath('precision_recall_at_score0.5_IoU0.5__T{}_A{}_M{}_{}.csv'.format(t_ind, a_ind, m_ind, subset, datafolder)))
 
 
 # %%
