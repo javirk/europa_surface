@@ -7,7 +7,6 @@ import torchvision.models.detection.mask_rcnn
 import utils
 from coco_eval import CocoEvaluator
 from coco_utils import get_coco_api_from_dataset
-import numpy as np
 
 import numpy as np
 from torchmetrics.detection.mean_ap import MeanAveragePrecision

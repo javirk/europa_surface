@@ -5,9 +5,10 @@ from contextlib import redirect_stdout
 import numpy as np
 import pycocotools.mask as mask_util
 import torch
-import detection.utils
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
+
+from .utils import all_gather
 
 
 class CocoEvaluator:
@@ -21,17 +22,17 @@ class CocoEvaluator:
         self.coco_eval = {}
         for iou_type in iou_types:
             # original: self.coco_eval[iou_type] = COCOeval(coco_gt, iouType=iou_type)
-            #print(iou_type)
+            # print(iou_type)
             chE = COCOeval(coco_gt, iouType=iou_type)
             # change params here
             # print(chE.params.iouThrs)
             # add 0.35 to iouThrs. This is then cared for in cocoeval.py (where COCOeval lives)
             # so that only 0.5 to 0.95 are evaluated in one
-            chE.params.iouThrs = np.array([0.35, 0.5 , 0.55, 0.6 , 0.65, 0.7 , 0.75, 0.8 , 0.85, 0.9 , 0.95]) # [0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95] # np.arange(0.35,1,0.05) # [.5:.05:.95] 
+            chE.params.iouThrs = np.array([0.35, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9,
+                                           0.95])  # [0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95] # np.arange(0.35,1,0.05) # [.5:.05:.95]
             print(chE.params.iouThrs)
             # assining to coco_eval
             self.coco_eval[iou_type] = chE
-            
 
         self.img_ids = []
         self.eval_imgs = {k: [] for k in iou_types}
@@ -109,7 +110,7 @@ class CocoEvaluator:
             labels = prediction["labels"]
             masks = prediction["masks"]
 
-            masks = masks > 0.5 # makes binary mask.
+            masks = masks > 0.5  # makes binary mask.
             # change once for clone of run 16 (--> run 18) to see if performance increases}
             # masks = masks > 0.8
 
@@ -168,8 +169,8 @@ def convert_to_xywh(boxes):
 
 
 def merge(img_ids, eval_imgs):
-    all_img_ids = utils.all_gather(img_ids)
-    all_eval_imgs = utils.all_gather(eval_imgs)
+    all_img_ids = all_gather(img_ids)
+    all_eval_imgs = all_gather(eval_imgs)
 
     merged_img_ids = []
     for p in all_img_ids:
