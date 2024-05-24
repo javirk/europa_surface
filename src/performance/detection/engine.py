@@ -163,7 +163,7 @@ def _get_iou_types(model):
 
 
 @torch.inference_mode()
-def evaluate(model, data_loader, device, epochidx=0, writer=None):
+def evaluate(model, data_loader, device, epochidx=0, writer=None, savepath=None):
     n_threads = torch.get_num_threads()
     # FIXME remove this and make paste_masks_in_image run on the GPU
     torch.set_num_threads(1)
@@ -174,7 +174,7 @@ def evaluate(model, data_loader, device, epochidx=0, writer=None):
 
     coco = get_coco_api_from_dataset(data_loader.dataset) # this returns an object <pycocotools.coco.COCO at 0x1f12153c3d0>
     iou_types = _get_iou_types(model) # CH: this looks like ['bbox', 'segm']
-    coco_evaluator = CocoEvaluator(coco, iou_types)
+    coco_evaluator = CocoEvaluator(coco, iou_types, savepath=savepath)
     # change parameters in CocoEvaluator
 
     # CH on 2022-05-10, for my mAP calculation
@@ -336,7 +336,7 @@ def evaluate(model, data_loader, device, epochidx=0, writer=None):
 # CH on 2024-05-22
 # adapted method for evaluating SAM
 @torch.inference_mode()
-def evaluate_fromoutput(model_output, data_loader, device, epochidx=0, writer=None):
+def evaluate_fromoutput(model_output, data_loader, device, epochidx=0, writer=None, savepath=None):
     '''
     Difference to method above is that a model output in the form
     model_output = [
@@ -363,7 +363,7 @@ def evaluate_fromoutput(model_output, data_loader, device, epochidx=0, writer=No
 
     coco = get_coco_api_from_dataset(data_loader.dataset) # this returns an object <pycocotools.coco.COCO at 0x1f12153c3d0>
     iou_types = ['bbox', 'segm']
-    coco_evaluator = CocoEvaluator(coco, iou_types)
+    coco_evaluator = CocoEvaluator(coco, iou_types, savepath=savepath)
     # change parameters in CocoEvaluator
 
     # CH on 2022-05-10, for my mAP calculation

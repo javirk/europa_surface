@@ -309,12 +309,10 @@ def main(config, datafolders, hdfdatafolder):
             # validation set
             dataset_val = Lineament_dataloader(mygalipath / 'test', transform=None, bbox_threshold=20)
 
-            # load model
-            savep = Path('model_dict')
             # get class_dict
             class_dict = dataset_val.load_class_dict()
-            cat_dict = {v: k for k, v in dataset_val.load_class_dict().items()}
-            num_classes = len(class_dict) + 1
+            # cat_dict = {v: k for k, v in dataset_val.load_class_dict().items()}
+            # num_classes = len(class_dict) + 1
 
             # get the model using our helper function
             device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -336,7 +334,7 @@ def main(config, datafolders, hdfdatafolder):
             # EVALUATE
             if config.evaluate_now:
                 # I've changed 'evaluate' to output individual class APs
-                mdict = evaluate_fromoutput(model_output, dataloader_val, device=device)
+                mdict = evaluate_fromoutput(model_output, dataloader_val, device=device, savepath='./metrics')
                 mdict['map']  # this is the total map
                 mdict['map_per_class']  # this is a tensor
                 # CAUTION: I modified 'evaluate' so that mdict gets stored in C:\Users\ch20s351, from where I can get it

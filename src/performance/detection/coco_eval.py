@@ -12,7 +12,7 @@ from .utils import all_gather
 
 
 class CocoEvaluator:
-    def __init__(self, coco_gt, iou_types):
+    def __init__(self, coco_gt, iou_types, savepath=None):
         if not isinstance(iou_types, (list, tuple)):
             raise TypeError(f"This constructor expects iou_types of type list or tuple, instead  got {type(iou_types)}")
         coco_gt = copy.deepcopy(coco_gt)
@@ -28,9 +28,9 @@ class CocoEvaluator:
             # print(chE.params.iouThrs)
             # add 0.35 to iouThrs. This is then cared for in cocoeval.py (where COCOeval lives)
             # so that only 0.5 to 0.95 are evaluated in one
-            chE.params.iouThrs = np.array([0.35, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9,
-                                           0.95])  # [0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95] # np.arange(0.35,1,0.05) # [.5:.05:.95]
+            # not needed anymore, implemented in pycocotools cocoeval.py: chE.params.iouThrs = np.array([0.35, 0.5 , 0.55, 0.6 , 0.65, 0.7 , 0.75, 0.8 , 0.85, 0.9 , 0.95]) # [0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95] # np.arange(0.35,1,0.05) # [.5:.05:.95] 
             print(chE.params.iouThrs)
+            chE.params.savepath = savepath # e.g. './output'
             # assining to coco_eval
             self.coco_eval[iou_type] = chE
 
