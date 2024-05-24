@@ -63,7 +63,8 @@ def build_sam_vit_b(checkpoint=None, train_encoder=True, train_prompt_encoder=Tr
     )
 
 
-def build_sam_vit_t(checkpoint=None, num_classes=3, image_size=512):
+def build_sam_vit_t(checkpoint=None, train_encoder=True, train_prompt_encoder=True, train_decoder=True, num_classes=3,
+                    image_size=512):
     return _build_sam_vit_t(checkpoint=checkpoint, num_classes=num_classes, image_size=image_size)
 
 
@@ -146,7 +147,14 @@ def _build_sam(
 
 
 # Mobile-SAM
-def _build_sam_vit_t(checkpoint=None, image_size=512, num_classes=3):
+def _build_sam_vit_t(
+        checkpoint=None,
+        image_size=512,
+        num_classes=3,
+        train_encoder=True,
+        train_prompt_encoder=True,
+        train_decoder=True
+):
     prompt_embed_dim = 256
     vit_patch_size = 16
     image_embedding_size = image_size // vit_patch_size
@@ -184,6 +192,9 @@ def _build_sam_vit_t(checkpoint=None, image_size=512, num_classes=3):
         ),
         pixel_mean=[123.675, 116.28, 103.53],
         pixel_std=[58.395, 57.12, 57.375],
+        train_encoder=train_encoder,
+        train_prompt_encoder=train_prompt_encoder,
+        train_decoder=train_decoder
     )
 
     mobile_sam.eval()

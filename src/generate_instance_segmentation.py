@@ -93,7 +93,7 @@ def instance_seg(args):
     for i, dataset_name in enumerate(args.eval_datasets):
         dataset_class = getattr(datasets, dataset_name)
         # Fold number is not important becase the test set is the same for all folds
-        dataset = dataset_class(root=args.data_location, split='train', fold_number=0)
+        dataset = dataset_class(root=args.data_location, split='test', fold_number=0)
         args.num_classes = dataset.num_classes
         args.ignore_index = dataset.ignore_index
 
