@@ -28,7 +28,7 @@ class GalileoDataset(DatasetBase):
 
     def __init__(self, root, split, dataset_type='all', transforms=None, bbox_shift=20, instance_segmentation=False,
                  **kwargs):
-        assert split in ['train', 'val', 'test']
+        assert split in ['train', 'val', 'test', 'trainval']
         assert dataset_type in ['new', 'old', 'all']
         # self.root = root
         self.transforms = transforms
@@ -130,7 +130,12 @@ class Galileo:
                 # v2.SanitizeBoundingBoxes(min_size=25, labels_getter=None),
             ])
 
-        self.train_dataset = GalileoDataset(root=location, split='train', dataset_type=dataset_type,
+        if args.training_split == 'trainval':
+            training_split = 'trainval'
+        else:
+            training_split = 'train'
+
+        self.train_dataset = GalileoDataset(root=location, split=training_split, dataset_type=dataset_type,
                                             fold_number=fold_number, transforms=transformations)
         self.val_dataset = GalileoDataset(root=location, split='val', dataset_type=dataset_type,
                                           fold_number=fold_number)
