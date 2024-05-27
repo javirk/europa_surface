@@ -87,6 +87,22 @@ def is_box_near_crop_edge(
     near_crop_edge = torch.logical_and(near_crop_edge, ~near_image_edge)
     return torch.any(near_crop_edge, dim=1)
 
+def does_mask_contain_point(
+        masks: torch.Tensor, points: torch.Tensor
+) -> torch.Tensor:
+    """
+    Check if a point is inside a mask.
+    """
+    keep_mask = []
+    for i, mask in enumerate(masks):
+        point = points[i].int()
+        if not mask[point[1], point[0]]:
+            keep_mask.append(False)
+        else:
+            keep_mask.append(True)
+    return keep_mask
+
+
 
 def is_box_empty(boxes: torch.Tensor) -> torch.Tensor:
     """

@@ -125,7 +125,10 @@ class DatasetBase(torch.utils.data.Dataset):
             point_label = torch.tensor([0])
             mask_instance_point = torch.zeros_like(mask).unsqueeze(0)
         else:
-            point_idx = np.random.choice(len(point[0]))
+            # Choose the instance, then sample a point from it
+            instance_num = np.random.choice(instance_mask.unique()[1:])  # Select from any but background
+            point_idx = np.random.choice(np.where(instance_mask[0] == instance_num)[0])
+            # point_idx = np.random.choice(len(point[0]))
             point = torch.tensor(
                 [point[2][point_idx], point[1][point_idx]])  # mask is 1xHxW, so we discard the first dim.
             mask_point, mask_instance_point = self.isolate_mask_point(point, mask, instance_mask, ignore=False)

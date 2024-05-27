@@ -186,9 +186,9 @@ if __name__ == '__main__':
     dataset = GalileoDataset(root_folder, 'train', transforms=trans, fold_number=0, instance_segmentation=False)
     dataloader = DataLoader(dataset, batch_size=4, shuffle=False)
 
-    for i, res in enumerate(dataset):
+    for i in range(len(dataset)):
         # continue
-        plot_return(res)
+        plot_return(dataset[i])
         # break
 
         # Save to a file

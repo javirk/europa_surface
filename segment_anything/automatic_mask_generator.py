@@ -20,6 +20,7 @@ from .utils.amg import (
     box_xyxy_to_xywh,
     build_all_layer_point_grids,
     calculate_stability_score,
+    does_mask_contain_point,
     coco_encode_rle,
     generate_crop_boxes,
     is_box_near_crop_edge,
@@ -318,11 +319,16 @@ class SamAutomaticMaskGenerator:
         data["masks"] = data["masks"] > self.predictor.model.mask_threshold
         data["boxes"] = batched_mask_to_box(data["masks"])
 
+        # Filter the masks that do not pass over the point
+        keep_mask = does_mask_contain_point(data['masks'], data['points'])
+        data.filter(keep_mask)
+        # keep_mask_points = ~does_box_contain_point(data['boxes'], data['points'])
+
         # Filter boxes that touch crop boundaries
         keep_mask_boundaries = ~is_box_near_crop_edge(data["boxes"], crop_box, [0, 0, orig_w, orig_h])
         # Filter empty boxes
         keep_mask_empty = ~is_box_empty(data["boxes"])
-        keep_mask = keep_mask_empty * keep_mask_boundaries
+        keep_mask = keep_mask_empty * keep_mask_boundaries #* keep_mask_points
         if not torch.all(keep_mask):
             data.filter(keep_mask)
 

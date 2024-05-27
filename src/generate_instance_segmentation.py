@@ -108,8 +108,8 @@ def instance_seg(args):
             model.to(device)
             model.eval()
 
-            mask_generator = SamAutomaticMaskGenerator(model, pred_iou_thresh=0.25, min_mask_region_area=10,
-                                                       points_per_side=16)
+            mask_generator = SamAutomaticMaskGenerator(model, pred_iou_thresh=0.25, min_mask_region_area=200,
+                                                       points_per_side=32)
             mask_annotator = sv.MaskAnnotator(color_lookup=sv.ColorLookup.INDEX)
 
             for k, data in tqdm(enumerate(dataset)):
@@ -117,11 +117,13 @@ def instance_seg(args):
                 name = data['name']
                 # Input must be in HWC uint8 format
                 inp = inp.permute(1, 2, 0).numpy().astype('uint8')
+                # if '17ESREGMAP02_GaliloSSI_Equi-cog_test_region_000_000' not in name:
+                #     continue
                 sam_result = mask_generator.generate(inp)
 
                 if len(sam_result) == 0:
-                    print(f"No masks found for {name}")
-                    # Mock arrays if no masks are found. Just for consistency
+                    print(f"No masks detected for {name}")
+                    # Mock arrays if no masks are detected. Just for consistency
                     mask = np.zeros((0, *inp.shape[:2]))
                     labels = np.zeros(0)
                     logits_mask = np.zeros((0, *inp.shape[:2]))
