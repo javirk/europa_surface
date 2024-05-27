@@ -187,8 +187,9 @@ if __name__ == '__main__':
     dataloader = DataLoader(dataset, batch_size=4, shuffle=False)
 
     for i in range(len(dataset)):
+        dataset[i]
         # continue
-        plot_return(dataset[i])
+        # plot_return(dataset[i])
         # break
 
         # Save to a file
