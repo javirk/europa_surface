@@ -102,7 +102,7 @@ class DatasetBase(torch.utils.data.Dataset):
         if self.transforms is not None:
             img, mask, instance_mask, bounding_boxes = self.transforms(img, mask, instance_mask, bounding_boxes)
 
-        if len(mask.unique()) == 1:
+        if len(mask.unique()) == 1 or (len(instance_mask.unique()) == 1 and instance_mask.unique()[0] == 0):
             return None
 
         # Downsample mask
