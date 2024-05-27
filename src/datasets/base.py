@@ -71,10 +71,13 @@ class DatasetBase(torch.utils.data.Dataset):
         mask[outside_bbox_mask] = self.ignore_index
         return mask
 
-    def isolate_mask_point(self, point, mask, instance_mask):
+    def isolate_mask_point(self, point, mask, instance_mask, ignore=False):
         if type(mask) == np.ndarray:
             mask = torch.from_numpy(mask)
-        mask_ignore_index = torch.ones_like(mask) * self.ignore_index
+        if ignore:
+            mask_ignore_index = torch.ones_like(mask) * self.ignore_index
+        else:
+            mask_ignore_index = torch.zeros_like(mask)
         val_point = mask[0, point[1], point[0]]
         instance = instance_mask[0, point[1], point[0]]
         mask_ignore_index[instance_mask == instance] = val_point
@@ -125,7 +128,7 @@ class DatasetBase(torch.utils.data.Dataset):
             point_idx = np.random.choice(len(point[0]))
             point = torch.tensor(
                 [point[2][point_idx], point[1][point_idx]])  # mask is 1xHxW, so we discard the first dim.
-            mask_point, mask_instance_point = self.isolate_mask_point(point, mask, instance_mask)
+            mask_point, mask_instance_point = self.isolate_mask_point(point, mask, instance_mask, ignore=False)
             # Transform the point so that it can be used in SAM
             # point = self.sam_transform.apply_coords_torch(point, mask.shape[-2:]).unsqueeze(0)
             point_label = torch.tensor([1])  # Foreground pixel

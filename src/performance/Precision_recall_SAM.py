@@ -373,7 +373,7 @@ def get_javier_config(hdfdatafolder):
 if __name__ == '__main__':
     user = 'javier'
     if user == 'javier':
-        hdf_folder = './results/Galileo/Galileo_20240523-094036_testingset'
+        hdf_folder = './results/Galileo/Galileo_20240527-114401'
         root, data_root, datafolders, hdfdatafolder, save_path, subset = get_javier_config(hdf_folder)
     elif user == 'caroline':
         root, data_root, datafolders, hdfdatafolder, save_path, subset = get_caroline_config()

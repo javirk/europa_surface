@@ -108,26 +108,35 @@ def instance_seg(args):
             model.to(device)
             model.eval()
 
-            mask_generator = SamAutomaticMaskGenerator(model, pred_iou_thresh=0.25, min_mask_region_area=200,
-                                                       points_per_side=8)
+            mask_generator = SamAutomaticMaskGenerator(model, pred_iou_thresh=0.25, min_mask_region_area=10,
+                                                       points_per_side=16)
             mask_annotator = sv.MaskAnnotator(color_lookup=sv.ColorLookup.INDEX)
 
-            for i, data in tqdm(enumerate(dataset)):
+            for k, data in tqdm(enumerate(dataset)):
                 inp = data['image']
                 name = data['name']
                 # Input must be in HWC uint8 format
                 inp = inp.permute(1, 2, 0).numpy().astype('uint8')
                 sam_result = mask_generator.generate(inp)
 
-                sorted_generated_masks = sorted(
-                    sam_result, key=lambda x: x["predicted_iou"], reverse=True
-                )
+                if len(sam_result) == 0:
+                    print(f"No masks found for {name}")
+                    # Mock arrays if no masks are found. Just for consistency
+                    mask = np.zeros((0, *inp.shape[:2]))
+                    labels = np.zeros(0)
+                    logits_mask = np.zeros((0, *inp.shape[:2]))
+                    bbox = np.zeros((0, 4))
+                    scores = np.zeros(0)
+                else:
+                    sorted_generated_masks = sorted(
+                        sam_result, key=lambda x: x["predicted_iou"], reverse=True
+                    )
 
-                mask = np.array([mask["segmentation"] for mask in sorted_generated_masks])
-                labels = np.array([mask['class_id'] for mask in sorted_generated_masks])
-                logits_mask = np.array([mask['logits_mask'] for mask in sorted_generated_masks])
-                bbox = np.array([box_xywh_to_xyxy(mask['bbox']) for mask in sorted_generated_masks])
-                scores = np.array([min(1, mask['predicted_iou']) for mask in sorted_generated_masks])
+                    mask = np.array([mask["segmentation"] for mask in sorted_generated_masks])
+                    labels = np.array([mask['class_id'] for mask in sorted_generated_masks])
+                    logits_mask = np.array([mask['logits_mask'] for mask in sorted_generated_masks])
+                    bbox = np.array([box_xywh_to_xyxy(mask['bbox']) for mask in sorted_generated_masks])
+                    scores = np.array([min(1, mask['predicted_iou']) for mask in sorted_generated_masks])
 
                 # Save masks, bboxes, labels and scores into hdf5py
                 with h5py.File(os.path.join(args.save, name + '.hdf5'), "w") as f:
