@@ -77,6 +77,20 @@ def plot_images_grid(
 
 
 def instance_seg(args):
+    '''
+    args: --data-location
+            /Users/javier/Documents/datasets/europa
+            --eval-datasets
+            GalileoDataset
+            --train-dataset
+            Galileo
+            --exp-name
+            Galileo
+            --testing-ckpt
+            ./ckpts/instseg_trainval_object_noign.pt
+            --save
+            ./results
+    '''
     args.wandb = False
     assert args.exp_name is not None
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -109,7 +123,7 @@ def instance_seg(args):
             model.eval()
 
             mask_generator = SamAutomaticMaskGenerator(model, pred_iou_thresh=0.25, min_mask_region_area=200,
-                                                       points_per_side=32)
+                                                       points_per_side=16)
             mask_annotator = sv.MaskAnnotator(color_lookup=sv.ColorLookup.INDEX)
 
             for k, data in tqdm(enumerate(dataset)):
@@ -117,8 +131,6 @@ def instance_seg(args):
                 name = data['name']
                 # Input must be in HWC uint8 format
                 inp = inp.permute(1, 2, 0).numpy().astype('uint8')
-                # if '17ESREGMAP02_GaliloSSI_Equi-cog_test_region_000_000' not in name:
-                #     continue
                 sam_result = mask_generator.generate(inp)
 
                 if len(sam_result) == 0:
