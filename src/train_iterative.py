@@ -30,7 +30,7 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_i
     if args.wandb:
         wandb.config.update(args, allow_val_change=True)
 
-    model = get_model(args, dataset.train_dataset, train_encoder=False, train_prompt_encoder=True, train_decoder=True)
+    model = get_model(args, dataset.train_dataset, train_encoder=True, train_prompt_encoder=True, train_decoder=True)
     # model = torch.nn.DataParallel(model, device_ids=devices)
     model.to(device)
     model.train()
@@ -42,6 +42,7 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_i
 
     evaluate(model, args, args.eval_datasets, {'epoch': initial_epoch, 'step': 0}, prompting_eval=['none'])
     evaluate(model, args, args.eval_datasets, {'epoch': initial_epoch, 'step': 0}, prompting_eval=['point'])
+    evaluate(model, args, args.eval_datasets, {'epoch': initial_epoch, 'step': 0}, prompting_eval=['bb'])
 
     for epoch in range(args.epochs):
         print(f'Epoch {epoch}')
@@ -54,7 +55,7 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_i
 
             point_low_res_target = data['mask_point_downsampled'].to(device)
             none_low_res_target = data['mask_downsampled'].to(device)
-            if random() < 0.5:
+            if random() < 0.75:
                 boxes = data['boxes'].to(device)
                 points = None
             else:
@@ -121,6 +122,10 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_i
                  prompting_eval=['none'])
         evaluate(model, args, args.eval_datasets, {'epoch': epoch, 'step': wandb_step}, split='train',
                  prompting_eval=['none'])
+        evaluate(model, args, args.eval_datasets, {'epoch': epoch, 'step': wandb_step}, split='val',
+                 prompting_eval=['bb'])
+        evaluate(model, args, args.eval_datasets, {'epoch': epoch, 'step': wandb_step}, split='train',
+                 prompting_eval=['bb'])
         # Saving models
         if args.save is not None and (epoch + 1) % args.write_freq == 0:
             os.makedirs(args.save, exist_ok=True)

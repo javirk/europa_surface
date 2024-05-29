@@ -45,7 +45,7 @@ def eval_single_dataset(args, model, dataset, prompting='point', save_output_mas
                 target = data['mask_point'].to(device)
                 point = (data['point'].to(device), data['point_label'].to(device))
             elif prompting == 'bb':
-                target = data['mask_bb'].to(device)
+                target = data['mask_point'].to(device)
                 boxes = data['boxes'].to(device)
             else:
                 target = data['mask'].to(device)

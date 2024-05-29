@@ -13,3 +13,4 @@ from .build_sam import (
 )
 from .predictor import SamPredictor
 from .automatic_mask_generator import SamAutomaticMaskGenerator
+from .bbox_prompt_mask_generator import SamBBoxMaskGenerator

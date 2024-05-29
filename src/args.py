@@ -171,7 +171,7 @@ def parse_arguments():
 
     parser.add_argument(
         '--task',
-        choices=['training', 'testing', 'training_iterative', 'instance_testing'],
+        choices=['training', 'testing', 'training_iterative', 'instance_testing', 'bounding_box_prompting'],
         type=str,
         default='training'
     )

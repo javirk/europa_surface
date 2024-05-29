@@ -103,6 +103,15 @@ class GalileoDataset(DatasetBase):
         return Path(img_data).stem
 
 
+class VanillaGalileoDataset(GalileoDataset):
+    def __getitem__(self, idx):
+        img_data = self.imgs[idx]  # path, slice number
+        img, mask, instance_mask, bounding_boxes = self._read_image(img_data)
+        img = torch.repeat_interleave(img, repeats=3, dim=0)
+        name = self._get_name(img_data)
+        return {'image': img, 'mask': mask, 'instance_mask': instance_mask, 'bboxes': bounding_boxes, 'name': name}
+
+
 class Galileo:
     test_subset = None
 
@@ -183,7 +192,7 @@ if __name__ == '__main__':
     # trans = v2.RandAugment(num_ops=3)
 
     root_folder = '/Users/javier/Documents/datasets/europa/'
-    dataset = GalileoDataset(root_folder, 'train', transforms=trans, fold_number=0, instance_segmentation=False)
+    dataset = VanillaGalileoDataset(root_folder, 'train', transforms=trans, fold_number=0, instance_segmentation=False)
     dataloader = DataLoader(dataset, batch_size=4, shuffle=False)
 
     for i in range(len(dataset)):

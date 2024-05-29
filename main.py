@@ -10,6 +10,7 @@ from src.models.utils import write_results, make_name, project_name_composer
 from src.test_segmentation import testing
 from src.train_iterative import train_iterative
 from src.generate_instance_segmentation import instance_seg
+from src.bounding_box_prompting import bounding_box_prompt
 
 
 def main(args):
@@ -32,6 +33,10 @@ def main(args):
     elif args.task == 'instance_testing':
         instance_seg(args)
         return
+    elif args.task == 'bounding_box_prompting':
+        bounding_box_prompt(args)
+        return
+
 
     # Training things
     if args.wandb:
