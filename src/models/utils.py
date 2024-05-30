@@ -224,7 +224,7 @@ def get_loss_fn(args) -> Dict[(str, Callable)]:
                                         ignore_index=args.ignore_index)
         elif l == 'FocalLoss':
             fn = smp.losses.FocalLoss(mode='binary' if args.num_classes == 1 else 'multiclass',
-                                      ignore_index=args.ignore_index)
+                                      ignore_index=args.ignore_index, gamma=5)
         elif l == 'CrossEntropyLoss':
             fn = CrossEntropyLoss(ignore_index=args.ignore_index)
         elif l == 'EntropyLoss':
