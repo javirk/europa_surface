@@ -38,8 +38,8 @@
 ##SBATCH --array=0-11%8
 
 # Main Python code below this line
-PYTHONPATH="./" python main.py --batch-size=16 --lr=1e-4 --wd=0.01 --epochs=100 --workers 8 \
+PYTHONPATH="./" python main.py --batch-size=256 --lr=1e-4 --wd=0.01 --epochs=400 --workers 8 \
   --data-location=/storage/workspaces/artorg_aimi/ws_00000/javier/datasets/europa/dataset_224x224/ \
-  --eval-datasets=GalileoDataset --train-dataset=Galileo --loss-fn=DiceLoss,CrossEntropyLoss,IoUHeadLoss \
-   --loss-weights=0.2,0.8,1.0 --wandb --exp-name=Galileo --save=./results/ \
-   --pretrained-model=./segment_anything/checkpoints/sam_vit_b_01ec64.pth --task training_iterative
+  --eval-datasets=GalileoDataset --train-dataset=Galileo --loss-fn=DiceLoss,CrossEntropyLoss --loss-weights=0.2,0.8 \
+  --wandb --exp-name=Galileo --save=./results/ --pretrained-model=./ckpts/semseg.pt \
+  --task training_iterative --scheduler=constant

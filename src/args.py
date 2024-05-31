@@ -171,7 +171,8 @@ def parse_arguments():
 
     parser.add_argument(
         '--task',
-        choices=['training', 'testing', 'training_iterative'],
+        choices=['training', 'testing', 'training_iterative', 'instance_testing', 'bounding_box_prompting',
+                 'bbox_iterative'],
         type=str,
         default='training'
     )
@@ -184,7 +185,7 @@ def parse_arguments():
 
     parser.add_argument(
         '--training-split',
-        choices=['train', 'val', 'test'],
+        choices=['train', 'val', 'test', 'trainval'],
         type=str,
         default='train',
     )
@@ -220,6 +221,13 @@ def parse_arguments():
         default=False,
         action="store_true",
         help="Use bbox prompting",
+    )
+
+    parser.add_argument(
+        "--dataset-type",
+        default='all',
+        choices=['all', 'old', 'new'],
+        help="Which dataset to use",
     )
 
     parsed_args = parser.parse_args()

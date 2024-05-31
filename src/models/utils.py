@@ -33,10 +33,12 @@ def get_semanticseg_transformations():
             v2.RandomHorizontalFlip(),
             v2.RandomVerticalFlip(),
             v2.RandomAffine(degrees=45, translate=(0.2, 0.2), scale=(0.8, 1.2), shear=16),
-            v2.ColorJitter(brightness=0.7, contrast=0.7, saturation=0.7, hue=0),
+            # v2.ColorJitter(brightness=0.7, contrast=0.7, saturation=0.7, hue=0),
             v2.GaussianBlur(kernel_size=(5, 5)),
             v2.RandomAdjustSharpness(sharpness_factor=2),
-        ], p=0.8)
+            v2.RandomErasing(p=0.5, scale=(0.02, 0.10), ratio=(0.3, 3.3))
+            # v2.SanitizeBoundingBoxes()
+        ], p=0.5)
     ])
 
 
@@ -152,10 +154,10 @@ class IoUHeadLoss(torch.nn.Module):
         self.ignore_index = config.ignore_index
         self.reduction = reduction
 
-    def forward(self, sam_output, target):
+    def forward(self, sam_output, target, use_low_res=False):
         # 1. Compute Pred - Target IoU
         # 2. MSE between predicted IoU and real
-        pred = sam_output['masks']
+        pred = sam_output['low_res_logits'] if use_low_res else sam_output['masks']
         iou_pred = sam_output['iou_predictions']
         with torch.no_grad():
             tp, fp, fn, tn = metrics.get_stats(pred.argmax(1), target, mode=self.mode, num_classes=self.num_classes,
@@ -163,7 +165,10 @@ class IoUHeadLoss(torch.nn.Module):
             iou_real = metrics.iou_score(tp, fp, fn, tn, reduction=self.reduction)
             iou_real = iou_real.to(iou_pred.device)
 
-        mse_loss = torch.nn.functional.mse_loss(iou_pred, iou_real)
+        mse_loss = torch.nn.functional.mse_loss(iou_pred, iou_real, reduction='none')  # [N, B]
+        # Sum over the classes, then mean over batch. This gives more weight to the incorrect classes
+        # mse_loss = mse_loss.sum(1).mean()
+        mse_loss = mse_loss.mean()
         return mse_loss
 
 
@@ -219,7 +224,7 @@ def get_loss_fn(args) -> Dict[(str, Callable)]:
                                         ignore_index=args.ignore_index)
         elif l == 'FocalLoss':
             fn = smp.losses.FocalLoss(mode='binary' if args.num_classes == 1 else 'multiclass',
-                                      ignore_index=args.ignore_index)
+                                      ignore_index=args.ignore_index, gamma=5)
         elif l == 'CrossEntropyLoss':
             fn = CrossEntropyLoss(ignore_index=args.ignore_index)
         elif l == 'EntropyLoss':

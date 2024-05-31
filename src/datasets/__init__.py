@@ -1,2 +1,2 @@
 from .base import DatasetBase
-from .galileo import Galileo, GalileoDataset
+from .galileo import Galileo, GalileoDataset, VanillaGalileoDataset

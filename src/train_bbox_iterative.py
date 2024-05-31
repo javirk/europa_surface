@@ -1,14 +1,14 @@
 import os
 import torch
 import wandb
-from random import random
 
 from src.models.utils import (get_datasets, get_loss_fn, build_optimizer_scheduler, get_model,
-                              get_semanticseg_transformations, point_from_mask)
+                              get_semanticseg_transformations)
 from src.models.eval import evaluate
+from src.datasets.base import DatasetBase
 
 
-def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_id=None):
+def bbox_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_id=None):
     if device_id is None:
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     else:
@@ -31,7 +31,6 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_i
         wandb.config.update(args, allow_val_change=True)
 
     model = get_model(args, dataset.train_dataset, train_encoder=True, train_prompt_encoder=True, train_decoder=True)
-
     # model = torch.nn.DataParallel(model, device_ids=devices)
     model.to(device)
     model.train()
@@ -54,31 +53,22 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_i
             inp = data['image'].to(device)
             original_size = inp.shape[-2:]  # They should all have the same shape. We hope
 
-            point_low_res_target = data['mask_point_downsampled'].to(device)
-            none_low_res_target = data['mask_downsampled'].to(device)
-            if random() < 0.75:
-                boxes = data['boxes'].to(device)
-                points = None
-            else:
-                boxes = None
-                points = [data['point'].to(device), data['point_label'].to(device)]
-            point_target = data['mask_point'][:, 0].to(device)
             none_target = data['mask'][:, 0].to(device)
-            previous_points = [data['point'].to(device), data['point_label'].to(device)]
+            boxes = data['boxes'].to(device)
+            current_boxes = boxes.clone()
+            box_target = data['mask_point'][:, 0].to(device)  # Point target is actually the same as bbox target
 
             embeddings = model.encoder_step(inp)
 
             for i_iter in range(args.num_iterations):
-                target = point_target
-                low_res_target = point_low_res_target
-
+                target = box_target
+                # Iterations without prompts, to keep the model from overfitting to the prompts
                 if i_iter > 0 and i_iter % (args.num_iterations // 2) == 0:
-                    # This is an iteration without point prompting
+                    # This is an iteration without prompting
                     target = none_target
-                    low_res_target = none_low_res_target
-                    points = None
+                    current_boxes = None
 
-                output = model.from_embeddings(embeddings, original_size, boxes, points)
+                output = model.from_embeddings(embeddings, original_size, current_boxes, points=None)
 
                 loss = 0
                 losses = {}
@@ -93,17 +83,14 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_i
                         losses[f'train/{name}'] = loss_item.item() / args.num_iterations
                     else:
                         losses[f'train/{name}'] += loss_item.item() / args.num_iterations
-                        
                     loss += loss_item * w
 
                 loss /= args.num_iterations
                 loss.backward(retain_graph=True)
 
-                # Sample new points
-                point, point_label = point_from_mask(target, output['masks'], previous_points[0], device)
-                previous_points[0] = torch.concat((previous_points[0], point), dim=1)
-                previous_points[1] = torch.concat((previous_points[1], point_label), dim=1)
-                points = previous_points
+                # Perturb the initial bounding box a little bit
+                boxes = DatasetBase.perturb_bouding_box(boxes, original_size=original_size)
+                current_boxes = boxes.clone()
 
             optimizer.step()
             scheduler.step()

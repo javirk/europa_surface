@@ -45,7 +45,7 @@ def eval_single_dataset(args, model, dataset, prompting='point', save_output_mas
                 target = data['mask_point'].to(device)
                 point = (data['point'].to(device), data['point_label'].to(device))
             elif prompting == 'bb':
-                target = data['mask_bb'].to(device)
+                target = data['mask_point'].to(device)
                 boxes = data['boxes'].to(device)
             else:
                 target = data['mask'].to(device)
@@ -103,7 +103,7 @@ def evaluate(model, args, eval_datasets, train_stats={}, split='val', prompting_
         print('\nEvaluating on ', dataset_name)
         dataset_class = getattr(datasets, dataset_name)
         # dataset = dataset_class(root=args.emb_location, root_base=args.data_location, split=split, only_fluid=False)
-        dataset = dataset_class(root=args.data_location, split=split)
+        dataset = dataset_class(root=args.data_location, split=split, dataset_type=args.dataset_type)
 
         results_none, results_none_fine = {}, {}
         results_bb, results_bb_fine = {}, {}

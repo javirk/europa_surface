@@ -6,10 +6,9 @@
 #SBATCH --mail-user=javier.gamazo-tejero@unibe.ch
 # Mail on NONE, BEGIN, END, FAIL, REQUEUE, ALL
 #SBATCH --mail-type=FAIL,END
-#SBATCH --account=ws_00000
 
 # Job name
-#SBATCH --job-name="gal_sam_lowres"
+#SBATCH --job-name="gal_sam_iterations"
 
 # Partition
 #SBATCH --partition=gpu-invest # all, gpu, phi, long
@@ -38,8 +37,8 @@
 ##SBATCH --array=0-11%8
 
 # Main Python code below this line
-PYTHONPATH="./" python main.py --batch-size=32 --lr=1e-4 --wd=0.01 --epochs=100 --workers 8 \
+PYTHONPATH="./" python main.py --batch-size=128 --lr=8e-4 --wd=0.01 --epochs=400 --workers 8 \
   --data-location=/storage/workspaces/artorg_aimi/ws_00000/javier/datasets/europa/ \
-  --eval-datasets=GalileoDataset --train-dataset=Galileo --loss-fn=DiceLoss,CrossEntropyLoss --loss-weights=0.2,0.8 \
-  --wandb --exp-name=Galileo --save=./results/ --pretrained-model=./segment_anything/checkpoints/sam_vit_b_01ec64.pth \
-  --dataset-type=all
+  --eval-datasets=GalileoDataset --train-dataset=Galileo --loss-fn=DiceLoss,FocalLoss,IoUHeadLoss \
+  --loss-weights=1.0,20.0,1.0 --wandb --exp-name=Galileo --save=./results/ --pretrained-model=./ckpts/instseg_trainval_object_noign.pt \
+  --task training_iterative --scheduler=constant --dataset-type=all --training-split=trainval

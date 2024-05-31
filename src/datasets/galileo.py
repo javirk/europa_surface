@@ -1,5 +1,6 @@
 import os
 import torch
+import json
 import h5py
 import numpy as np
 from glob import glob
@@ -8,7 +9,7 @@ from torchvision import tv_tensors
 from torchvision.transforms import v2
 from segment_anything.utils.transforms import ResizeLongestSide
 
-from src.datasets.base import DatasetBase
+from src.datasets.base import DatasetBase, plot_return
 from src.datasets.transforms import GaussianNoise
 from src.datasets.dataset_utils import none_collate
 
@@ -25,24 +26,36 @@ class GalileoDataset(DatasetBase):
     ignore_index = 5
     image_size = 224
 
-    def __init__(self, root, split, transforms=None, bbox_shift=20, instance_segmentation=False, **kwargs):
-        assert split in ['train', 'val', 'test']
+    def __init__(self, root, split, dataset_type='all', transforms=None, bbox_shift=20, ignore_outside_pixels=False,
+                 **kwargs):
+        assert split in ['train', 'val', 'test', 'trainval']
+        assert dataset_type in ['new', 'old', 'all']
         # self.root = root
         self.transforms = transforms
         self.split = split
-        self.imgs = self.get_imgs_names(root, split)
+        self.imgs = self.get_imgs_names(root, split, dataset_type)
 
         self.sam_transform = ResizeLongestSide(1024)  # Images are 1024x1024 in SAM
         self.bbox_shift = bbox_shift
         self.downsampling_size = self.image_size // 4
-        self.instance_segmentation = instance_segmentation
+        self.ignore_outside_pixels = ignore_outside_pixels
 
     @staticmethod
-    def get_imgs_names(root, split):
+    def legacy_get_imgs_names(root, split):
         path = os.path.join(root, split)
         data = sorted(glob(os.path.join(path, '*.hdf5')))
         assert len(data) > 0, f'No data found'
         return data
+
+    @staticmethod
+    def get_imgs_names(root, split, dataset_type):
+        file = os.path.join(root, 'splits.json')
+        # Load the json file
+        with open(file, 'r') as f:
+            data = json.load(f)
+        dataset_data = data[dataset_type][split]
+        dataset_data = [os.path.join(root, x) for x in dataset_data]
+        return dataset_data
 
     def _read_image(self, img_data):
         """
@@ -55,11 +68,15 @@ class GalileoDataset(DatasetBase):
             img = f['image'][:]
             # mask_ids = f['mask_ids'][:]  # [instances,]
             bboxes = f['bboxes'][:]  # [instances, 4]
-            sem_mask = f['instance_mask'][:] if self.instance_segmentation else f['semantic_mask'][:]
+            sem_mask = f['semantic_mask'][:]
             instance_mask = f['instance_mask'][:]
             # Either [H, W, instances] or [H, W]
 
-        # Instance segmentation is one-shot. Converting to normal
+        # Instance segmentation is one-shot. Converting to normal.
+        # Careful! There is not an instance for the background, so applying argmax directly is wrong
+        inverse_background_mask = np.sum(instance_mask, axis=-1)
+        background_mask = np.where(inverse_background_mask == 0, 1, 0)
+        instance_mask = np.concatenate([background_mask[:, :, None], instance_mask], axis=-1)
         instance_mask = np.argmax(instance_mask, axis=-1)
 
         # if self.instance_segmentation:
@@ -86,11 +103,21 @@ class GalileoDataset(DatasetBase):
         return Path(img_data).stem
 
 
+class VanillaGalileoDataset(GalileoDataset):
+    def __getitem__(self, idx):
+        img_data = self.imgs[idx]  # path, slice number
+        img, mask, instance_mask, bounding_boxes = self._read_image(img_data)
+        img = torch.repeat_interleave(img, repeats=3, dim=0)
+        name = self._get_name(img_data)
+        return {'image': img, 'mask': mask, 'instance_mask': instance_mask, 'bboxes': bounding_boxes, 'name': name}
+
+
 class Galileo:
     test_subset = None
 
     def __init__(self,
                  location=os.path.expanduser('~/data'),
+                 dataset_type='all',
                  batch_size=128,
                  num_workers=8,
                  transformations=None,
@@ -112,10 +139,17 @@ class Galileo:
                 # v2.SanitizeBoundingBoxes(min_size=25, labels_getter=None),
             ])
 
-        self.train_dataset = GalileoDataset(root=location, split='train', fold_number=fold_number,
-                                            transforms=transformations)
-        self.val_dataset = GalileoDataset(root=location, split='val', fold_number=fold_number)
-        self.test_dataset = GalileoDataset(root=location, split='test', fold_number=fold_number)
+        if args.training_split == 'trainval':
+            training_split = 'trainval'
+        else:
+            training_split = 'train'
+
+        self.train_dataset = GalileoDataset(root=location, split=training_split, dataset_type=dataset_type,
+                                            fold_number=fold_number, transforms=transformations)
+        self.val_dataset = GalileoDataset(root=location, split='val', dataset_type=dataset_type,
+                                          fold_number=fold_number)
+        self.test_dataset = GalileoDataset(root=location, split='test', dataset_type=dataset_type,
+                                           fold_number=fold_number)
 
         self.train_loader = torch.utils.data.DataLoader(
             self.train_dataset,
@@ -144,15 +178,8 @@ class Galileo:
 
 
 if __name__ == '__main__':
-    import torchvision
-    import matplotlib.pyplot as plt
     from torchvision.transforms import v2
     from torch.utils.data import DataLoader
-
-
-    def show_points(coords, ax, marker_size=200):
-        ax.scatter(coords[:, 0], coords[:, 1], color='green', marker='*', s=marker_size, edgecolor='white',
-                   linewidth=1.)
 
     trans = v2.Compose([
         v2.RandomRotation(20),
@@ -164,36 +191,14 @@ if __name__ == '__main__':
 
     # trans = v2.RandAugment(num_ops=3)
 
-    root_folder = '/Users/javier/Documents/datasets/europa/dataset_224x224/'
+    root_folder = '/Users/javier/Documents/datasets/europa/'
     dataset = GalileoDataset(root_folder, 'train', transforms=trans, fold_number=0, instance_segmentation=False)
     dataloader = DataLoader(dataset, batch_size=4, shuffle=False)
 
-    for i, res in enumerate(dataset):
-        im = res['image']
-        m_box = res['mask_bb']
-        m_point = res['mask_point']
-        box = res['boxes']
-        point = res['point']
-
-        # Bring back the box to the original size
-        # box = box.reshape(-1, 2, 2)
-        # box[..., 0] = box[..., 0] * (im.shape[-1] / 1024)
-        # box[..., 1] = box[..., 1] * (im.shape[-2] / 1024)
-        # box = box.reshape(-1, 4)
-        # # Bring back the point to the original size
-        # point[..., 0] = point[..., 0] * (im.shape[-1] / 1024)
-        # point[..., 1] = point[..., 1] * (im.shape[-2] / 1024)
-
-        # fix, ax = plt.subplots(1, 3)
-        # ax[0].imshow(torchvision.utils.draw_bounding_boxes(im, box, colors='red').permute(1, 2, 0))
-        # show_points(point, ax[0])
-        # ax[1].imshow(m_box[0])
-        # ax[2].imshow(m_point[0])
-        #
-        # ax[0].set_title('Original image')
-        # ax[1].set_title('Mask BB')
-        # ax[2].set_title('Mask Point')
-        # plt.show()
+    for i in range(len(dataset)):
+        # dataset[i]
+        # continue
+        plot_return(dataset[i])
         # break
 
         # Save to a file
