@@ -26,7 +26,7 @@ class GalileoDataset(DatasetBase):
     ignore_index = 5
     image_size = 224
 
-    def __init__(self, root, split, dataset_type='all', transforms=None, bbox_shift=20, instance_segmentation=False,
+    def __init__(self, root, split, dataset_type='all', transforms=None, bbox_shift=20, ignore_outside_pixels=False,
                  **kwargs):
         assert split in ['train', 'val', 'test', 'trainval']
         assert dataset_type in ['new', 'old', 'all']
@@ -38,7 +38,7 @@ class GalileoDataset(DatasetBase):
         self.sam_transform = ResizeLongestSide(1024)  # Images are 1024x1024 in SAM
         self.bbox_shift = bbox_shift
         self.downsampling_size = self.image_size // 4
-        self.instance_segmentation = instance_segmentation
+        self.ignore_outside_pixels = ignore_outside_pixels
 
     @staticmethod
     def legacy_get_imgs_names(root, split):
@@ -68,7 +68,7 @@ class GalileoDataset(DatasetBase):
             img = f['image'][:]
             # mask_ids = f['mask_ids'][:]  # [instances,]
             bboxes = f['bboxes'][:]  # [instances, 4]
-            sem_mask = f['instance_mask'][:] if self.instance_segmentation else f['semantic_mask'][:]
+            sem_mask = f['semantic_mask'][:]
             instance_mask = f['instance_mask'][:]
             # Either [H, W, instances] or [H, W]
 
@@ -101,6 +101,15 @@ class GalileoDataset(DatasetBase):
 
     def _get_name(self, img_data):
         return Path(img_data).stem
+
+
+class VanillaGalileoDataset(GalileoDataset):
+    def __getitem__(self, idx):
+        img_data = self.imgs[idx]  # path, slice number
+        img, mask, instance_mask, bounding_boxes = self._read_image(img_data)
+        img = torch.repeat_interleave(img, repeats=3, dim=0)
+        name = self._get_name(img_data)
+        return {'image': img, 'mask': mask, 'instance_mask': instance_mask, 'bboxes': bounding_boxes, 'name': name}
 
 
 class Galileo:
@@ -187,9 +196,9 @@ if __name__ == '__main__':
     dataloader = DataLoader(dataset, batch_size=4, shuffle=False)
 
     for i in range(len(dataset)):
-        dataset[i]
+        # dataset[i]
         # continue
-        # plot_return(dataset[i])
+        plot_return(dataset[i])
         # break
 
         # Save to a file

@@ -154,10 +154,10 @@ class IoUHeadLoss(torch.nn.Module):
         self.ignore_index = config.ignore_index
         self.reduction = reduction
 
-    def forward(self, sam_output, target):
+    def forward(self, sam_output, target, use_low_res=False):
         # 1. Compute Pred - Target IoU
         # 2. MSE between predicted IoU and real
-        pred = sam_output['low_res_logits']
+        pred = sam_output['low_res_logits'] if use_low_res else sam_output['masks']
         iou_pred = sam_output['iou_predictions']
         with torch.no_grad():
             tp, fp, fn, tn = metrics.get_stats(pred.argmax(1), target, mode=self.mode, num_classes=self.num_classes,
@@ -224,7 +224,7 @@ def get_loss_fn(args) -> Dict[(str, Callable)]:
                                         ignore_index=args.ignore_index)
         elif l == 'FocalLoss':
             fn = smp.losses.FocalLoss(mode='binary' if args.num_classes == 1 else 'multiclass',
-                                      ignore_index=args.ignore_index)
+                                      ignore_index=args.ignore_index, gamma=5)
         elif l == 'CrossEntropyLoss':
             fn = CrossEntropyLoss(ignore_index=args.ignore_index)
         elif l == 'EntropyLoss':

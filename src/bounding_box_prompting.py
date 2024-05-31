@@ -15,7 +15,7 @@ from supervision.utils.conversion import pillow_to_cv2
 
 import src.datasets as datasets
 from src.models.utils import get_model
-from segment_anything.automatic_mask_generator import SamAutomaticMaskGenerator
+from segment_anything import SamBBoxMaskGenerator
 from segment_anything.utils.amg import box_xywh_to_xyxy
 
 
@@ -76,21 +76,7 @@ def plot_images_grid(
     plt.close()
 
 
-def instance_seg(args):
-    '''
-    args: --data-location
-            /Users/javier/Documents/datasets/europa
-            --eval-datasets
-            GalileoDataset
-            --train-dataset
-            Galileo
-            --exp-name
-            Galileo
-            --testing-ckpt
-            ./ckpts/instseg_trainval_object_noign.pt
-            --save
-            ./results
-    '''
+def bounding_box_prompt(args):
     args.wandb = False
     assert args.exp_name is not None
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -107,7 +93,7 @@ def instance_seg(args):
     for i, dataset_name in enumerate(args.eval_datasets):
         dataset_class = getattr(datasets, dataset_name)
         # Fold number is not important becase the test set is the same for all folds
-        dataset = dataset_class(root=args.data_location, split='test', fold_number=0)
+        dataset = dataset_class(root=args.data_location, split='test', fold_number=0, get_full_sample=True)
         args.num_classes = dataset.num_classes
         args.ignore_index = dataset.ignore_index
 
@@ -122,59 +108,52 @@ def instance_seg(args):
             model.to(device)
             model.eval()
 
-            mask_generator = SamAutomaticMaskGenerator(model, pred_iou_thresh=0.25, min_mask_region_area=200,
-                                                       points_per_side=32)
+            mask_generator = SamBBoxMaskGenerator(model)
             mask_annotator = sv.MaskAnnotator(color_lookup=sv.ColorLookup.INDEX)
+            box_annotator = sv.BoundingBoxAnnotator(color=sv.Color.red())
 
             for k, data in tqdm(enumerate(dataset)):
-                inp = data['image']
+                inp = data['image'].permute(1,2,0).numpy()  # [3, H, W]
                 name = data['name']
-                # Input must be in HWC uint8 format
-                inp = inp.permute(1, 2, 0).numpy().astype('uint8')
-                sam_result = mask_generator.generate(inp)
+                boxes = data['bboxes']  # [N, 4]
 
-                if len(sam_result) == 0:
-                    print(f"No masks detected for {name}")
-                    # Mock arrays if no masks are detected. Just for consistency
-                    mask = np.zeros((0, *inp.shape[:2]))
-                    labels = np.zeros(0)
-                    logits_mask = np.zeros((0, *inp.shape[:2]))
-                    bbox = np.zeros((0, 4))
-                    scores = np.zeros(0)
-                else:
-                    sorted_generated_masks = sorted(
-                        sam_result, key=lambda x: x["predicted_iou"], reverse=True
-                    )
+                # Batch the boxes first
+                sam_result = mask_generator.generate(inp, boxes)
+                # "segmentation": mask_data['masks'],
+                # "bbox": mask_data['boxes'],
+                # "predicted_iou": mask_data['iou_preds'],
 
-                    mask = np.array([mask["segmentation"] for mask in sorted_generated_masks])
-                    labels = np.array([mask['class_id'] for mask in sorted_generated_masks])
-                    logits_mask = np.array([mask['logits_mask'] for mask in sorted_generated_masks])
-                    bbox = np.array([box_xywh_to_xyxy(mask['bbox']) for mask in sorted_generated_masks])
-                    scores = np.array([min(1, mask['predicted_iou']) for mask in sorted_generated_masks])
+                mask = sam_result['segmentation']  # Numpy array already
 
-                # Save masks, bboxes, labels and scores into hdf5py
-                with h5py.File(os.path.join(args.save, name + '.hdf5'), "w") as f:
-                    f.create_dataset("mask", data=mask)
-                    f.create_dataset("labels", data=labels)
-                    f.create_dataset("logits_mask", data=logits_mask)
-                    f.create_dataset("bbox", data=bbox)
-                    f.create_dataset("scores", data=scores)
+                instances = (mask[:, 1:].sum(axis=1) > 0)
 
-                detections = sv.Detections.from_sam(sam_result=sam_result)  # This does not use the class id
-                sem_mask = np.zeros([5, *mask.shape[1:]])
-
-                # Put all the annotations together for semantic segmentation
-                for j in range(len(mask)):
-                    sem_mask[labels[j], mask[j] == 1] = 1
-                semantic_detections = sv.Detections(xyxy=np.zeros((sem_mask.shape[0], 4)), mask=sem_mask.astype(bool))
-                annotated_image = mask_annotator.annotate(scene=inp.copy(),
-                                                          detections=detections)  # Instance segmentation
+                instance_detections = sv.Detections(xyxy=boxes.numpy(), mask=instances, class_id=np.zeros(len(boxes)))
                 annotated_image_semantic = mask_annotator.annotate(scene=inp.copy(),
-                                                                   detections=semantic_detections)  # Semantic seg
+                                                                   detections=instance_detections)
+                inp = box_annotator.annotate(scene=inp.copy(), detections=instance_detections)
 
                 plot_images_grid(
-                    images=[inp, annotated_image, annotated_image_semantic],
-                    grid_size=(1, 3),
-                    titles=['source image', 'instance segmentation', 'semantic segmentation'],
+                    images=[inp, annotated_image_semantic],
+                    grid_size=(1, 2),
+                    titles=['source image', 'instance segmentation'],
                     save_path=os.path.join(args.save, name + '.png')
                 )
+
+                # detections = sv.Detections.from_sam(sam_result=sam_result)  # This does not use the class id
+                # sem_mask = np.zeros([5, *mask.shape[1:]])
+                #
+                # # Put all the annotations together for semantic segmentation
+                # for j in range(len(mask)):
+                #     sem_mask[labels[j], mask[j] == 1] = 1
+                # semantic_detections = sv.Detections(xyxy=np.zeros((sem_mask.shape[0], 4)), mask=sem_mask.astype(bool))
+                # annotated_image = mask_annotator.annotate(scene=inp.copy(),
+                #                                           detections=detections)  # Instance segmentation
+                # annotated_image_semantic = mask_annotator.annotate(scene=inp.copy(),
+                #                                                    detections=semantic_detections)  # Semantic seg
+                #
+                # plot_images_grid(
+                #     images=[inp, annotated_image, annotated_image_semantic],
+                #     grid_size=(1, 3),
+                #     titles=['source image', 'instance segmentation', 'semantic segmentation'],
+                #     save_path=os.path.join(args.save, name + '.png')
+                # )

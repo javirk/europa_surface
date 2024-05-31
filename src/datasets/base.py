@@ -48,12 +48,58 @@ class DatasetBase(torch.utils.data.Dataset):
         bounding_boxes = torch.stack(bounding_boxes, dim=0)
         return bounding_boxes, labeled_mask
 
-    def perturbate_bbox(self, bbox: torch.Tensor, original_size: (int, int)) -> torch.Tensor:
-        bbox[0] = max(0, bbox[0] - random.randint(0, self.bbox_shift))  # xmin
-        bbox[1] = max(0, bbox[1] - random.randint(0, self.bbox_shift))  # ymin
-        bbox[2] = min(original_size[1], bbox[2] + random.randint(0, self.bbox_shift))  # xmax
-        bbox[3] = min(original_size[0], bbox[3] + random.randint(0, self.bbox_shift))  # ymax
-        return bbox
+    @staticmethod
+    def perturb_bouding_box(bbox: torch.Tensor, original_size: (int, int), max_noise: int = 5) -> torch.Tensor:
+        """
+        Perturb each side of the bounding box with random noise. Standard deviation equal to 10% of the box sidelength,
+        to a maximum of max_noise (5) pixels (in SAM this is done with 20 pixels, but images are 1024px. I transformed
+        it to 5 pixels for 224px images)
+
+        Parameters:
+        bbox (torch.Tensor): Bounding box in XYXY format (x_min, y_min, x_max, y_max).
+        original_size (tuple): Original image size as (width, height).
+        max_noise (int): Maximum noise in pixels.
+
+        Returns:
+        torch.Tensor: Perturbed bounding box.
+        """
+        initial_bbox = bbox.clone()
+        if bbox.dim() == 1:
+            bbox = bbox.unsqueeze(0)
+        # Calculate side lengths
+        width = bbox[..., 2] - bbox[..., 0]
+        height = bbox[..., 3] - bbox[..., 1]
+
+        # Calculate standard deviation for the noise (10% of the side length)
+        std_x = 0.1 * width
+        std_y = 0.1 * height
+        std = torch.stack([std_x, std_y, std_x, std_y], dim=-1)
+        # std = torch.repeat_interleave(std, repeats=bbox.shape[0], dim=0)
+
+        # Generate random noise for each coordinate
+        noise = torch.normal(mean=0, std=std)
+
+        # Clamp the noise to max_noise
+        noise = torch.clamp(noise, -max_noise, max_noise)
+
+        # Apply noise to the bounding box coordinates
+        perturbed_bbox = (bbox + noise).to(bbox.dtype)
+
+        # Crop the bounding box to be within image boundaries
+        perturbed_bbox[..., 0] = torch.clamp(perturbed_bbox[..., 0], 0, original_size[0])  # x_min
+        perturbed_bbox[..., 1] = torch.clamp(perturbed_bbox[..., 1], 0, original_size[1])  # y_min
+        perturbed_bbox[..., 2] = torch.clamp(perturbed_bbox[..., 2], 0, original_size[0])  # x_max
+        perturbed_bbox[..., 3] = torch.clamp(perturbed_bbox[..., 3], 0, original_size[1])  # y_max
+
+        # Ensure that the perturbed_bbox is still a valid box (x_min < x_max and y_min < y_max)
+        perturbed_bbox[..., 2] = torch.max(perturbed_bbox[..., 2], perturbed_bbox[..., 0] + 1)  # Ensure x_max > x_min
+        perturbed_bbox[..., 3] = torch.max(perturbed_bbox[..., 3], perturbed_bbox[..., 1] + 1)  # Ensure y_max > y_min
+
+        # Reshape perturbed_bbox to the inital shape
+        if initial_bbox.dim() == 1:
+            perturbed_bbox = perturbed_bbox.squeeze(0)
+
+        return perturbed_bbox
 
     def isolate_mask_bb(self, bounding_box, mask):
         min_x, min_y, max_x, max_y = bounding_box
@@ -71,10 +117,10 @@ class DatasetBase(torch.utils.data.Dataset):
         mask[outside_bbox_mask] = self.ignore_index
         return mask
 
-    def isolate_mask_point(self, point, mask, instance_mask, ignore=False):
+    def isolate_mask_point(self, point, mask, instance_mask):
         if type(mask) == np.ndarray:
             mask = torch.from_numpy(mask)
-        if ignore:
+        if self.ignore_outside_pixels:
             mask_ignore_index = torch.ones_like(mask) * self.ignore_index
         else:
             mask_ignore_index = torch.zeros_like(mask)
@@ -135,7 +181,7 @@ class DatasetBase(torch.utils.data.Dataset):
             points = np.where(temp_mask_instance)
             point_idx = np.random.choice(len(points[0]))
             point = torch.tensor([points[1][point_idx], points[0][point_idx]])
-            mask_point, mask_instance_point = self.isolate_mask_point(point, mask, instance_mask, ignore=False)
+            mask_point, mask_instance_point = self.isolate_mask_point(point, mask, instance_mask)
             # Transform the point so that it can be used in SAM
             # point = self.sam_transform.apply_coords_torch(point, mask.shape[-2:]).unsqueeze(0)
             point_label = torch.tensor([1])  # Foreground pixel
@@ -147,9 +193,11 @@ class DatasetBase(torch.utils.data.Dataset):
 
         # Select one bounding box at random. Zero all the values of the mask outside the bounding box
         # bounding_box = bounding_boxes[np.random.choice(len(bounding_boxes))]
-        bounding_box = batched_mask_to_box(mask_instance_point != self.ignore_index)
+        bb_index = self.ignore_index if self.ignore_outside_pixels else 0
+        bounding_box = batched_mask_to_box(mask_instance_point != bb_index)
         assert len(bounding_box) == 1, f'More than one bounding box found?'
-        bounding_box = bounding_box[0]
+        bounding_box = self.perturb_bouding_box(bounding_box[0], mask_instance_point.shape[-2:])
+        # bounding_box = bounding_box[0]
         mask_bb = self.isolate_mask_bb(bounding_box, mask)
         # Transform the BB so that it can be used in SAM
         # bounding_box = self.sam_transform.apply_boxes_torch(bounding_box, mask.shape[-2:])

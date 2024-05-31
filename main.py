@@ -10,6 +10,8 @@ from src.models.utils import write_results, make_name, project_name_composer
 from src.test_segmentation import testing
 from src.train_iterative import train_iterative
 from src.generate_instance_segmentation import instance_seg
+from src.bounding_box_prompting import bounding_box_prompt
+from src.train_bbox_iterative import bbox_iterative
 
 
 def main(args):
@@ -32,6 +34,10 @@ def main(args):
     elif args.task == 'instance_testing':
         instance_seg(args)
         return
+    elif args.task == 'bounding_box_prompting':
+        bounding_box_prompt(args)
+        return
+
 
     # Training things
     if args.wandb:
@@ -53,6 +59,8 @@ def main(args):
             wandb_step = train(args, wandb_step=wandb_step, fold_number=fold_number)
     elif args.task == 'training_iterative':
         train_iterative(args, fold_number=0)
+    elif args.task == 'bbox_iterative':
+        bbox_iterative(args, fold_number=0)
     else:
         raise NotImplementedError
 
