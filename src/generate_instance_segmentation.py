@@ -123,7 +123,7 @@ def instance_seg(args):
             model.eval()
 
             mask_generator = SamAutomaticMaskGenerator(model, pred_iou_thresh=0.25, min_mask_region_area=200,
-                                                       points_per_side=16)
+                                                       points_per_side=32)
             mask_annotator = sv.MaskAnnotator(color_lookup=sv.ColorLookup.INDEX)
 
             for k, data in tqdm(enumerate(dataset)):

@@ -71,7 +71,7 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_i
                 target = point_target
                 low_res_target = point_low_res_target
 
-                if i_iter > 0 and i_iter % (args.num_iterations // 2) == 0:  # So the first and the half
+                if i_iter > 0 and i_iter % (args.num_iterations // 2) == 0:
                     # This is an iteration without point prompting
                     target = none_target
                     low_res_target = none_low_res_target
