@@ -53,17 +53,22 @@ def bbox_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_id
             inp = data['image'].to(device)
             original_size = inp.shape[-2:]  # They should all have the same shape. We hope
 
-            low_res_target = data['mask_point_downsampled'].to(device)
+            none_target = data['mask'][:, 0].to(device)
             boxes = data['boxes'].to(device)
-            points = None
-            target = data['mask_point'][:, 0].to(device)  # Point target is actually the same as bbox target
-            # none_target = data['mask'][:, 0].to(device)
-            # previous_points = [data['point'].to(device), data['point_label'].to(device)]
+            current_boxes = boxes.clone()
+            box_target = data['mask_point'][:, 0].to(device)  # Point target is actually the same as bbox target
 
             embeddings = model.encoder_step(inp)
 
             for i_iter in range(args.num_iterations):
-                output = model.from_embeddings(embeddings, original_size, boxes, points)
+                target = box_target
+                # Iterations without prompts, to keep the model from overfitting to the prompts
+                if i_iter > 0 and i_iter % (args.num_iterations // 2) == 0:
+                    # This is an iteration without prompting
+                    target = none_target
+                    current_boxes = None
+
+                output = model.from_embeddings(embeddings, original_size, current_boxes, points=None)
 
                 loss = 0
                 losses = {}
@@ -83,8 +88,9 @@ def bbox_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_id
                 loss /= args.num_iterations
                 loss.backward(retain_graph=True)
 
-                # Perturb the bounding box a little bit
+                # Perturb the initial bounding box a little bit
                 boxes = DatasetBase.perturb_bouding_box(boxes, original_size=original_size)
+                current_boxes = boxes.clone()
 
             optimizer.step()
             scheduler.step()
