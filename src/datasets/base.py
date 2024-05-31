@@ -48,7 +48,8 @@ class DatasetBase(torch.utils.data.Dataset):
         bounding_boxes = torch.stack(bounding_boxes, dim=0)
         return bounding_boxes, labeled_mask
 
-    def perturb_bouding_box(self, bbox: torch.Tensor, original_size: (int, int), max_noise: int = 5) -> torch.Tensor:
+    @staticmethod
+    def perturb_bouding_box(bbox: torch.Tensor, original_size: (int, int), max_noise: int = 5) -> torch.Tensor:
         """
         Perturb each side of the bounding box with random noise. Standard deviation equal to 10% of the box sidelength,
         to a maximum of max_noise (5) pixels (in SAM this is done with 20 pixels, but images are 1024px. I transformed
@@ -62,16 +63,21 @@ class DatasetBase(torch.utils.data.Dataset):
         Returns:
         torch.Tensor: Perturbed bounding box.
         """
+        initial_bbox = bbox.clone()
+        if bbox.dim() == 1:
+            bbox = bbox.unsqueeze(0)
         # Calculate side lengths
-        width = bbox[2] - bbox[0]
-        height = bbox[3] - bbox[1]
+        width = bbox[..., 2] - bbox[..., 0]
+        height = bbox[..., 3] - bbox[..., 1]
 
         # Calculate standard deviation for the noise (10% of the side length)
         std_x = 0.1 * width
         std_y = 0.1 * height
+        std = torch.stack([std_x, std_y, std_x, std_y], dim=-1)
+        # std = torch.repeat_interleave(std, repeats=bbox.shape[0], dim=0)
 
         # Generate random noise for each coordinate
-        noise = torch.normal(mean=0, std=torch.tensor([std_x, std_y, std_x, std_y]))
+        noise = torch.normal(mean=0, std=std)
 
         # Clamp the noise to max_noise
         noise = torch.clamp(noise, -max_noise, max_noise)
@@ -80,14 +86,18 @@ class DatasetBase(torch.utils.data.Dataset):
         perturbed_bbox = (bbox + noise).to(bbox.dtype)
 
         # Crop the bounding box to be within image boundaries
-        perturbed_bbox[0] = torch.clamp(perturbed_bbox[0], 0, original_size[0])  # x_min
-        perturbed_bbox[1] = torch.clamp(perturbed_bbox[1], 0, original_size[1])  # y_min
-        perturbed_bbox[2] = torch.clamp(perturbed_bbox[2], 0, original_size[0])  # x_max
-        perturbed_bbox[3] = torch.clamp(perturbed_bbox[3], 0, original_size[1])  # y_max
+        perturbed_bbox[..., 0] = torch.clamp(perturbed_bbox[..., 0], 0, original_size[0])  # x_min
+        perturbed_bbox[..., 1] = torch.clamp(perturbed_bbox[..., 1], 0, original_size[1])  # y_min
+        perturbed_bbox[..., 2] = torch.clamp(perturbed_bbox[..., 2], 0, original_size[0])  # x_max
+        perturbed_bbox[..., 3] = torch.clamp(perturbed_bbox[..., 3], 0, original_size[1])  # y_max
 
         # Ensure that the perturbed_bbox is still a valid box (x_min < x_max and y_min < y_max)
-        perturbed_bbox[2] = torch.max(perturbed_bbox[2], perturbed_bbox[0] + 1)  # Ensure x_max > x_min
-        perturbed_bbox[3] = torch.max(perturbed_bbox[3], perturbed_bbox[1] + 1)  # Ensure y_max > y_min
+        perturbed_bbox[..., 2] = torch.max(perturbed_bbox[..., 2], perturbed_bbox[..., 0] + 1)  # Ensure x_max > x_min
+        perturbed_bbox[..., 3] = torch.max(perturbed_bbox[..., 3], perturbed_bbox[..., 1] + 1)  # Ensure y_max > y_min
+
+        # Reshape perturbed_bbox to the inital shape
+        if initial_bbox.dim() == 1:
+            perturbed_bbox = perturbed_bbox.squeeze(0)
 
         return perturbed_bbox
 
