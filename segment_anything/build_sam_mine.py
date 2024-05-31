@@ -7,68 +7,88 @@
 import torch
 
 from functools import partial
+from torch.nn import functional as F
 
-from .modeling import (ImageEncoderViT, MaskDecoder, PromptEncoder, Sam, TwoWayTransformer, TinyViT)
+from .modeling import (ImageEncoderViT, MaskDecoder, PromptEncoder, Sam, TwoWayTransformer, TwoWayTransformerAdaption,
+                       ImageEncoderViTAdapter, TwoWayTransformerBiggerAdaption)
 
 
-def build_sam_vit_h(checkpoint=None):
+def build_sam_vit_h(checkpoint=None, train_encoder=True, train_prompt_encoder=True, train_decoder=True, num_classes=3,
+                    image_size=512):
     return _build_sam(
         encoder_embed_dim=1280,
         encoder_depth=32,
         encoder_num_heads=16,
         encoder_global_attn_indexes=[7, 15, 23, 31],
         checkpoint=checkpoint,
+        train_encoder=train_encoder,
+        train_prompt_encoder=train_prompt_encoder,
+        train_decoder=train_decoder,
+        num_classes=num_classes,
+        image_size=image_size
     )
 
 
 build_sam = build_sam_vit_h
 
 
-def build_sam_vit_l(checkpoint=None):
+def build_sam_vit_l(checkpoint=None, train_encoder=True, train_prompt_encoder=True, train_decoder=True, num_classes=3,
+                    image_size=512):
     return _build_sam(
         encoder_embed_dim=1024,
         encoder_depth=24,
         encoder_num_heads=16,
         encoder_global_attn_indexes=[5, 11, 17, 23],
         checkpoint=checkpoint,
+        train_encoder=train_encoder,
+        train_prompt_encoder=train_prompt_encoder,
+        train_decoder=train_decoder,
+        num_classes=num_classes,
+        image_size=image_size
     )
 
 
-def build_sam_vit_b(checkpoint=None, num_classes=3):
+def build_sam_vit_b(checkpoint=None, train_encoder=True, train_prompt_encoder=True, train_decoder=True, num_classes=3,
+                    image_size=512):
     return _build_sam(
         encoder_embed_dim=768,
         encoder_depth=12,
         encoder_num_heads=12,
         encoder_global_attn_indexes=[2, 5, 8, 11],
         checkpoint=checkpoint,
-        num_classes=num_classes
+        train_encoder=train_encoder,
+        train_prompt_encoder=train_prompt_encoder,
+        train_decoder=train_decoder,
+        num_classes=num_classes,
+        image_size=image_size
     )
 
 
-def build_sam_vit_t(checkpoint=None, train_encoder=True, train_prompt_encoder=True, train_decoder=True, num_classes=3,
-                    image_size=512):
-    return _build_sam_vit_t(checkpoint=checkpoint, num_classes=num_classes, image_size=image_size)
 
-  
 sam_model_registry = {
     "default": build_sam_vit_h,
     "vit_h": build_sam_vit_h,
     "vit_l": build_sam_vit_l,
     "vit_b": build_sam_vit_b,
-    "vit_t": build_sam_vit_t,
 }
 
 
 def _build_sam(
-    encoder_embed_dim,
-    encoder_depth,
-    encoder_num_heads,
-    encoder_global_attn_indexes,
-    checkpoint=None,
-    num_classes=3,
+        encoder_embed_dim,
+        encoder_depth,
+        encoder_num_heads,
+        encoder_global_attn_indexes,
+        checkpoint=None,
+        image_size=512,
+        num_classes=3,
+        train_encoder=True,
+        train_prompt_encoder=True,
+        train_decoder=True
 ):
+    if type(image_size) is tuple:
+        assert image_size[0] == image_size[1]
+        image_size = image_size[0]
     prompt_embed_dim = 256
-    image_size = 1024
     vit_patch_size = 16
     image_embedding_size = image_size // vit_patch_size
     sam = Sam(
@@ -106,6 +126,9 @@ def _build_sam(
         ),
         pixel_mean=[123.675, 116.28, 103.53],
         pixel_std=[58.395, 57.12, 57.375],
+        train_encoder=train_encoder,
+        train_prompt_encoder=train_prompt_encoder,
+        train_decoder=train_decoder
     )
     sam.eval()
     if checkpoint is not None:
@@ -117,79 +140,6 @@ def _build_sam(
             new_state_dict = load_from(sam, state_dict, image_size, vit_patch_size)
             sam.load_state_dict(new_state_dict)
     return sam
-
-# Mobile-SAM
-def _build_sam_vit_t(
-        checkpoint=None,
-        image_size=512,
-        num_classes=3,
-        train_encoder=True,
-        train_prompt_encoder=True,
-        train_decoder=True
-):
-    prompt_embed_dim = 256
-    vit_patch_size = 16
-    image_embedding_size = image_size // vit_patch_size
-    mobile_sam = Sam(
-        image_encoder=TinyViT(img_size=image_size, in_chans=3, num_classes=1000,
-                              embed_dims=[64, 128, 160, 320],
-                              depths=[2, 2, 6, 2],
-                              num_heads=[2, 4, 5, 10],
-                              window_sizes=[7, 7, 14, 7],
-                              mlp_ratio=4.,
-                              drop_rate=0.,
-                              drop_path_rate=0.0,
-                              use_checkpoint=False,
-                              mbconv_expand_ratio=4.0,
-                              local_conv_size=3,
-                              layer_lr_decay=0.8
-                              ),
-        prompt_encoder=PromptEncoder(
-            embed_dim=prompt_embed_dim,
-            image_embedding_size=(image_embedding_size, image_embedding_size),
-            input_image_size=(image_size, image_size),
-            mask_in_chans=16,
-        ),
-        mask_decoder=MaskDecoder(
-            num_multimask_outputs=num_classes,
-            transformer=TwoWayTransformer(
-                depth=2,
-                embedding_dim=prompt_embed_dim,
-                mlp_dim=2048,
-                num_heads=8,
-            ),
-            transformer_dim=prompt_embed_dim,
-            iou_head_depth=3,
-            iou_head_hidden_dim=256,
-        ),
-        pixel_mean=[123.675, 116.28, 103.53],
-        pixel_std=[58.395, 57.12, 57.375],
-        train_encoder=train_encoder,
-        train_prompt_encoder=train_prompt_encoder,
-        train_decoder=train_decoder
-    )
-
-    mobile_sam.eval()
-    if checkpoint is not None:
-        with open(checkpoint, "rb") as f:
-            state_dict = torch.load(f, map_location='cpu')
-        try:
-            mobile_sam.load_state_dict(state_dict)
-        except:
-            new_state_dict = load_from_mobile(mobile_sam, state_dict)
-            mobile_sam.load_state_dict(new_state_dict)
-    return mobile_sam
-
-
-def load_from_mobile(mobile_sam, state_dict):
-    sam_dict = mobile_sam.state_dict()
-    except_keys = ['mask_tokens', 'output_hypernetworks_mlps', 'iou_prediction_head']
-    new_state_dict = {k: v for k, v in state_dict.items() if
-                      k in sam_dict.keys() and except_keys[0] not in k and except_keys[1] not in k and except_keys[
-                          2] not in k}
-    sam_dict.update(new_state_dict)
-    return sam_dict
-
 
 
 
