@@ -165,8 +165,8 @@ class SamBBoxMaskGenerator:
         )
         thresholded_masks = (masks > 0.0)
         # Filter the parts that are outside the bbox
-        for i, box in enumerate(boxes):
-            thresholded_masks[i, :, box[1]:box[3], box[0]:box[2]] = 0
+        # for i, box in enumerate(boxes):
+        #     thresholded_masks[i, :, box[0]:box[2], box[1]:box[3]] = 0
 
         # Serialize predictions and store in MaskData
         data = MaskData(
