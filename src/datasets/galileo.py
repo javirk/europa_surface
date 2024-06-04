@@ -25,11 +25,12 @@ class GalileoDataset(DatasetBase):
     num_classes = len(slices_domain.values())
     ignore_index = 5
     image_size = 224
+    min_size = 200
 
     def __init__(self, root, split, dataset_type='all', transforms=None, bbox_shift=20, ignore_outside_pixels=False,
                  **kwargs):
         assert split in ['train', 'val', 'test', 'trainval']
-        assert dataset_type in ['new', 'old', 'all']
+        assert dataset_type in ['new', 'old', 'all', 'new_112']
         # self.root = root
         self.transforms = transforms
         self.split = split
@@ -39,6 +40,9 @@ class GalileoDataset(DatasetBase):
         self.bbox_shift = bbox_shift
         self.downsampling_size = self.image_size // 4
         self.ignore_outside_pixels = ignore_outside_pixels
+        self.transform_resize_min = v2.Resize(self.min_size)
+        if dataset_type == 'new_112':
+            self.image_size = self.min_size
 
     @staticmethod
     def legacy_get_imgs_names(root, split):
@@ -151,6 +155,9 @@ class Galileo:
         self.test_dataset = GalileoDataset(root=location, split='test', dataset_type=dataset_type,
                                            fold_number=fold_number)
 
+        if len(self.val_dataset) == 0:
+            self.val_dataset = self.test_dataset
+
         self.train_loader = torch.utils.data.DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
@@ -192,7 +199,7 @@ if __name__ == '__main__':
     # trans = v2.RandAugment(num_ops=3)
 
     root_folder = '/Users/javier/Documents/datasets/europa/'
-    dataset = GalileoDataset(root_folder, 'train', transforms=trans, fold_number=0, instance_segmentation=False)
+    dataset = GalileoDataset(root_folder, 'train', transforms=trans, fold_number=0, dataset_type='new_112')
     dataloader = DataLoader(dataset, batch_size=4, shuffle=False)
 
     for i in range(len(dataset)):

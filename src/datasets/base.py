@@ -148,6 +148,9 @@ class DatasetBase(torch.utils.data.Dataset):
         if self.transforms is not None:
             img, mask, instance_mask, bounding_boxes = self.transforms(img, mask, instance_mask, bounding_boxes)
 
+        if min(img.shape[1:]) < self.min_size:
+            img, mask, instance_mask, bounding_boxes = self.transform_resize_min(img, mask, instance_mask, bounding_boxes)
+
         if len(mask.unique()) == 1 or (len(instance_mask.unique()) == 1 and instance_mask.unique()[0] == 0):
             return None
 
