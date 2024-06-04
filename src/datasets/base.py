@@ -154,6 +154,8 @@ class DatasetBase(torch.utils.data.Dataset):
         if len(mask.unique()) == 1 or (len(instance_mask.unique()) == 1 and instance_mask.unique()[0] == 0):
             return None
 
+        assert min(img.shape[1:]) == 200, f'Image shape is {img.shape}'
+
         # Downsample mask
         mask_downsampled = torch.nn.functional.interpolate(mask[None],
                                                            size=(self.downsampling_size, self.downsampling_size),
