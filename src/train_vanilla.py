@@ -73,7 +73,7 @@ def train(args, initial_epoch=0, wandb_step=0, fold_number=0):
             losses = {}
             for name, (w, fn) in loss_fn.items():
                 if 'iou' in name.lower():
-                    loss_item = fn(output, low_res_target)
+                    loss_item = fn(output, target)
                 else:
                     loss_item = fn(output['masks'], target)
                 losses[f'train/{name}'] = loss_item.item()
