@@ -25,7 +25,7 @@ class GalileoDataset(DatasetBase):
     num_classes = len(slices_domain.values())
     ignore_index = 5
     image_size = 224
-    min_size = 200
+    min_size = 112
 
     def __init__(self, root, split, dataset_type='all', transforms=None, bbox_shift=20, ignore_outside_pixels=False,
                  **kwargs):
