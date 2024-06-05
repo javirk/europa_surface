@@ -40,7 +40,7 @@ class GalileoDataset(DatasetBase):
         self.bbox_shift = bbox_shift
         self.downsampling_size = self.image_size // 4
         self.ignore_outside_pixels = ignore_outside_pixels
-        self.transform_resize_min = v2.Resize(self.min_size)
+        self.transform_resize_min = v2.Resize(self.min_size, antialias=True)
         if dataset_type == 'new_112':
             self.image_size = self.min_size
 
@@ -78,10 +78,20 @@ class GalileoDataset(DatasetBase):
 
         # Instance segmentation is one-shot. Converting to normal.
         # Careful! There is not an instance for the background, so applying argmax directly is wrong
+        # Also, sometimes there are masks inside masks. One should break ties in argmax from last to first
         inverse_background_mask = np.sum(instance_mask, axis=-1)
         background_mask = np.where(inverse_background_mask == 0, 1, 0)
         instance_mask = np.concatenate([background_mask[:, :, None], instance_mask], axis=-1)
-        instance_mask = np.argmax(instance_mask, axis=-1)
+        # instance_mask = np.argmax(instance_mask, axis=-1)  # This breaks ties in favor of the first class
+        # Now we break them from last to first:
+        reversed_instance_mask = instance_mask[..., ::-1]
+        # Find the index of the maximum value in the reversed array along the last axis
+        reversed_instance_mask = np.argmax(reversed_instance_mask, axis=-1)
+        # Convert the index to correspond to the original array
+        instance_mask = instance_mask.shape[-1] - 1 - reversed_instance_mask
+
+
+        # Background mask could be all ones,
 
         # if self.instance_segmentation:
         #     # Data is one-shot. Convert to normal
@@ -189,11 +199,16 @@ if __name__ == '__main__':
     from torch.utils.data import DataLoader
 
     trans = v2.Compose([
-        v2.RandomRotation(20),
-        v2.RandomHorizontalFlip(),
-        # GaussianNoise(mean=0, sigma=(1, 5)),
-        v2.GaussianBlur(kernel_size=3),
-        # v2.SanitizeBoundingBoxes(min_size=25, labels_getter=None),
+        v2.RandomApply([
+            v2.RandomHorizontalFlip(),
+            v2.RandomVerticalFlip(),
+            # v2.RandomAffine(degrees=45, translate=(0.2, 0.2), scale=(0.8, 1.2), shear=16),
+            # v2.ColorJitter(brightness=0.7, contrast=0.7, saturation=0.7, hue=0),
+            v2.GaussianBlur(kernel_size=(5, 5)),
+            v2.RandomAdjustSharpness(sharpness_factor=2),
+            # v2.RandomErasing(p=0.5, scale=(0.02, 0.10), ratio=(0.3, 3.3))
+            # v2.SanitizeBoundingBoxes()
+        ], p=0.5)
     ])
 
     # trans = v2.RandAugment(num_ops=3)
@@ -203,9 +218,9 @@ if __name__ == '__main__':
     dataloader = DataLoader(dataset, batch_size=4, shuffle=False)
 
     for i in range(len(dataset)):
-        # dataset[i]
-        # continue
-        plot_return(dataset[i])
+        dataset[i]
+        continue
+        # plot_return(dataset[i])
         # break
 
         # Save to a file
