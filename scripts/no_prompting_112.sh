@@ -6,7 +6,6 @@
 #SBATCH --mail-user=javier.gamazo-tejero@unibe.ch
 # Mail on NONE, BEGIN, END, FAIL, REQUEUE, ALL
 #SBATCH --mail-type=FAIL,END
-#SBATCH --account=ws_00000
 
 # Job name
 #SBATCH --job-name="gal_sam_lowres"
