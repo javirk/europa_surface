@@ -41,4 +41,4 @@ PYTHONPATH="./" python main.py --batch-size=128 --lr=8e-4 --wd=0.01 --epochs=400
   --data-location=/storage/workspaces/artorg_aimi/ws_00000/javier/datasets/europa/ \
   --eval-datasets=GalileoDataset --train-dataset=Galileo --loss-fn=DiceLoss,FocalLoss,IoUHeadLoss \
   --loss-weights=1.0,20.0,1.0 --wandb --exp-name=Galileo --save=./results/ --pretrained-model=./ckpts/tiny_112.pt \
-  --task training_iterative --scheduler=constant --dataset-type=new_112 --training-split=train
+  --task training_iterative --scheduler=constant --dataset-type=new_112 --training-split=train --model=vit_t

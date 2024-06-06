@@ -42,4 +42,4 @@ PYTHONPATH="./" python main.py --batch-size=128 --lr=1e-4 --wd=0.01 --epochs=400
   --eval-datasets=GalileoDataset --train-dataset=Galileo --loss-fn=DiceLoss,FocalLoss,IoUHeadLoss \
   --loss-weights=1.0,20.0,1.0 --wandb --exp-name=Galileo --save=./results/ \
   --pretrained-model=./ckpts/tiny_112.pt --task bbox_iterative --scheduler=constant --dataset-type=new_112 \
-  --training-split=train
+  --training-split=train --model=vit_t
