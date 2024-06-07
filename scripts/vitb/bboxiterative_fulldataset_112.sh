@@ -26,7 +26,7 @@
 ##SBATCH --ntasks-per-node=1
 
 # on gpu partition
-#SBATCH --gres=gpu:rtx3090:1
+#SBATCH --gres=gpu:a100:1
 
 # Set the current working directory.
 # All relative paths used in the job script are relative to this directory
