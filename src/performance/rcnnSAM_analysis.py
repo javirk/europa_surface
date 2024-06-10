@@ -22,9 +22,10 @@ import torchvision.transforms.functional as F
 import numpy as np
 import time
 
-from .detection.engine import evaluate_fromoutput
+from detection.engine import evaluate_fromoutput
 
 
+#%%
 # define segmentation and mask plotting routine
 
 # define segmentation and mask plotting routine
@@ -199,94 +200,15 @@ def segmask_box(img, target, threshold=0.5, score_thresh=0.5, alpha=0.8, colors=
     return result, out_masks
 
 
-def hdf_to_output(hdfpaths_orig, dataloader_val):
+def main(config, datafolders, shiftbools, rcnnsam_args):
     '''
-    first, load the hdf5 file !! for each image_path in dataloader_val !! to match
-    then, convert to tensor
-    output as list of dictionary
+    for debugging, use:
+        run = runs[0]
+        model_name = model_names[0]
+        datafolder = datafolders112[1]
     '''
-    outputs = []
-
-    # we loop through items in dataloader_val. the length depends on the batch size (usually 6)
-    for _, targets in iter(dataloader_val):
-        for target in targets:
-            # for each target, we get the corresponding hdf5 file, load it and save it in order
-            tarpath = target['path']
-
-            # get path stem
-            hdfpath = hdfpaths_orig.joinpath(tarpath.stem + '.hdf5')
-
-            # check if path exists:
-            if hdfpath not in sorted(hdfpaths_orig.glob('*.hdf5')):
-                # add empty prediction and continue
-                # to keep order!
-                # convert everything into a torch.Tensor
-                boxes = torch.as_tensor([[1.0, 1.0, 4.0, 4.0]],
-                                        dtype=torch.float32)  # [None] # add a dimension since model expects tensor of shape [N, 4]
-                # there are multiple classes
-                labels = torch.as_tensor([0], dtype=torch.int64)
-                # masks as tensor
-                masks = torch.as_tensor(np.zeros((1, 1, target['masks'].shape[1], target['masks'].shape[2])),
-                                        dtype=torch.uint8)
-                scores = torch.as_tensor([0], dtype=torch.int64)
-
-            else:  # load hdf5 results
-                # load hdf5
-                with h5py.File(hdfpath, "r") as f:
-                    masks = f['mask'][:]  # (10, 224, 224), but needs to be (10, 1, 224, 224)
-                    n_mask = masks.shape[0]
-                    labels = f['labels'][:]  # (10,)
-                    n_labels = labels.shape[0]
-                    # logits_mask = f['logits_mask'][:] # (10, 224, 224)
-                    boxes = f['bbox'][:]  # (10,4)
-                    n_boxes = boxes.shape[0]
-                    scores = f['scores'][:]  # (10,) IDEALLY, SCORES WOULD BE IN ORDER FOR CUTOFF.
-                    # print(scores)
-                    n_scores = scores.shape[0]
-
-                # sort by scores: how? dataframe and numpy.sort both do not work off the shelve.
-
-                # check number of predictions, has to be equal!
-                # print(len(np.unique(np.array([n_mask, n_boxes, n_labels, n_scores]))))
-                if len(np.unique(np.array([n_mask, n_boxes, n_labels, n_scores]))) != 1:
-                    print('this one is not equal: {}'.format(hdfpath))
-
-                '''
-                HDF5 contain all the data that you need (I believe) to compute AP. Each file has the data for an image and contains 5 fields:
-                “mask”: Boolean, thresholded mask [N, H, W], where N is the number of instances.
-                “labels”: [N]. Class ID for each instance
-                “logits_mask”: [N, H, W] logits mask (before sigmoid)
-                “bbox”: [N, 4] Bounding boxes in (Xmin Ymin Xmax Ymax) format
-                “scores”: [N] Score for each instance. This is actually the IoU prediction from the model and, to be honest, not completely reliable
-
-                '''
-
-                # convert everything into a torch.Tensor
-                boxes = torch.as_tensor(boxes,
-                                        dtype=torch.float32)  # [None] # add a dimension since model expects tensor of shape [N, 4]
-                # there are multiple classes
-                labels = torch.as_tensor(labels, dtype=torch.int64)
-                # masks as tensor
-                masks = torch.as_tensor(masks, dtype=torch.uint8)
-                # add one dimension
-                masks = masks[:, None, :, :]
-                # scores as tensor
-                scores = torch.as_tensor(scores, dtype=torch.float32)
-
-            model_output = {}
-            model_output["boxes"] = boxes
-            model_output["labels"] = labels
-            model_output["masks"] = masks
-            model_output['scores'] = scores
-
-            outputs.append(model_output)
-
-    return outputs  # as list, like mask R-CNN original output
-
-
-def main(config, datafolders, hdfdatafolder):
-    for run, model_name in zip(runs, model_names):
-        for datafolder in datafolders:
+    for run, model_name in zip(config['runs'], config['model_names']):
+        for datafolder, shift5to4 in zip(datafolders, shiftbools):
 
             figsubset = run + '_' + model_name
 
@@ -307,11 +229,11 @@ def main(config, datafolders, hdfdatafolder):
             # automatically look inside this hard-coded folder for the datafolder subfolder
             mygalipath = basepath / 'data/tiles' / datafolder
             # validation set
-            dataset_val = Lineament_dataloader(mygalipath / 'test', transform=None, bbox_threshold=20)
+            dataset = Lineament_dataloader(mygalipath / 'test', transform=None, bbox_threshold=20, shift5to4=shift5to4)
 
             # get class_dict
-            class_dict = dataset_val.load_class_dict()
-            # cat_dict = {v: k for k, v in dataset_val.load_class_dict().items()}
+            class_dict = dataset.load_class_dict()
+            # cat_dict = {v: k for k, v in dataset.load_class_dict().items()}
             # num_classes = len(class_dict) + 1
 
             # get the model using our helper function
@@ -319,35 +241,38 @@ def main(config, datafolders, hdfdatafolder):
 
             batch_size = 6
             dataloader_val = torch.utils.data.DataLoader(
-                dataset_val, batch_size=batch_size, shuffle=False, collate_fn=lambda x: list(zip(*x)))
-            # check output:
-            # images,targets = next(iter(dataset_val))
+                dataset, batch_size=batch_size, shuffle=False, collate_fn=lambda x: list(zip(*x)))
+            # # check output:
+            # images, targets = next(iter(dataset))
             # images = list(image for image in images)
             # targets = [{k: v for k, v in t.items()} for t in targets]
             # output = model(images,targets)   # Returns losses and detections
-            # #  note: output for several
-            # NEW: get model output of SAM in correct format:
-            model_output = hdf_to_output(hdfdatafolder, dataloader_val)  #
-            # check length:
-            print(f'length of dataset is {len(dataset_val)}, length of model_output is {len(model_output)}')
+            # rcnnSAM
+            mask_generator, box_generator = get_rcnnSAM(rcnnsam_args)
 
-            # EVALUATE
-            if config.evaluate_now:
-                # I've changed 'evaluate' to output individual class APs
-                mdict = evaluate_fromoutput(model_output, dataloader_val, device=device, savepath='./metrics')
-                mdict['map']  # this is the total map
-                mdict['map_per_class']  # this is a tensor
-                # CAUTION: I modified 'evaluate' so that mdict gets stored in C:\Users\ch20s351, from where I can get it
+            model_output = []
 
             # PLOT
-            dataset = dataset_val
-
             start_time = time.time()
-            # for Sri Lanka data: len(dataset) = 720
-            # for idx in [3, 5, 24, 89, 110, 175, 140, 295, 315, 370, 385, 390, 403, 428, 439, 440, 447, 454, 460, 468, 472, 478, 483, 493, 520, 536, 583, 596, 618, 640, 650, 658, 663, 688, 699, 712, 717]: #range(len(dataset)): # [3, 5, 24, 89, 110, 175, 140, 295, 398, 401, 471, 448, 514, 530]: # [0,1,2,3,4,5,6]:
-            for idx in range(len(dataset)):  # len(dataset)
+            for idx in range(len(dataset)): # len(dataset)
                 img, target = dataset[idx]
-                # put the model in evaluation mode
+                # # include a shift5to4-filter here!
+                # # loop through targets['labels]
+                # del_idcs = []
+                # for laidx in range(0, len(target['labels'])):
+                #     if target['labels'][laidx] == 4:
+                #         print('deleting 4')
+                #         target['labels'] 
+                #         del_idcs.append(laidx)
+                #     if target['labels'][laidx] == 5:
+                #         print('shifting to 4')
+                #         target['labels'][laidx] = 4
+                # now delete in reverse order, because it's lists
+
+                result = get_rcnnsam_output(mask_generator, box_generator, img)
+                model_output.append(result[0])
+
+                # and retrieve prediction 
                 prediction = model_output[idx]
                 # print("--- %s seconds for this ----" % (time.time() - start_time))
                 # time needed: 1.53 seconds for 11 images, or 1.48 s for 10 images
@@ -355,8 +280,8 @@ def main(config, datafolders, hdfdatafolder):
                 # use segmask function from data_viewer
 
                 # index prediction[0] to get rid of batch dimension
-                t, masks = segmask_box(img, prediction, threshold=config.mask_threshold,
-                                       score_thresh=config.score_thresh, alpha=0.8, colors=None, width=1, fontsize=6,
+                t, masks = segmask_box(img, prediction, threshold=config['mask_threshold'],
+                                       score_thresh=config['score_thresh'], alpha=0.8, colors=None, width=1, fontsize=6,
                                        font=None, del_boxes=False)
                 # ground truth:
                 tgr, masks_gr = segmask_box(img, target, threshold=None, alpha=0.8, colors=None, width=1, fontsize=6,
@@ -387,20 +312,19 @@ def main(config, datafolders, hdfdatafolder):
                 # title = img_path
                 # save fig to output
                 # give a specific name
-                if config.save:
+                if config['save']:
                     # pdf folder
-                    if config.pdf:
+                    if config['pdf']:
                         save_path_pdf = basepath / 'output/maskrcnn' / (dt_ymd + run) / 'pdf'
                         fig_path = save_path_pdf.joinpath(
-                            f'{target["path"].stem}_{figsubset}_{str(idx)}_{run}_score_thr_{str(config.score_thresh)}_'
-                            f'mask_thr_{str(config.mask_threshold)}.pdf'
+                            target['path'].stem + '_' + figsubset + '_' + str(idx) + run + '_score_thr_' + str(config['score_thresh']) + '_mask_thr_' + str(config['mask_threshold']) + '.pdf'
                         )
                         os.makedirs(save_path_pdf, exist_ok=True)
                         fig.savefig(fig_path, bbox_inches='tight', facecolor='white')
 
 
                     # png folder
-                    if config.png:
+                    if config['png']:
                         save_path_png = basepath / 'output/maskrcnn' / (dt_ymd + run) / 'png'
                         fig_path = save_path_png.joinpath(f'{target["path"].stem}_{figsubset}_{str(idx)}{run}.png')
                         os.makedirs(save_path_png, exist_ok=True)
@@ -414,36 +338,99 @@ def main(config, datafolders, hdfdatafolder):
                     imgpreds.save(indpath.joinpath(figsubset + str(idx) + run + '_prediction.png'), quality=95)
                     imggr.save(indpath.joinpath(figsubset + str(idx) + run + '_groundtruth.png'), quality=95)
                     plt.close('all')
+                # #  note: output for several
+                # NEW: get model output of SAM in correct format:
+                # model_output = hdf_to_output(hdfdatafolder, dataloader_val)  #
+
+                # check length:
+                print(f'length of dataset is {len(dataset)}, length of model_output is {len(model_output)}')
+
+            # after model_output is complete
+            # EVALUATE
+            if config['evaluate_now']:
+                # I've changed 'evaluate' to output individual class APs
+                mdict = evaluate_fromoutput(model_output, dataloader_val, device=device, savepath='./metrics')
+                mdict['map']  # this is the total map
+                mdict['map_per_class']  # this is a tensor
+                # CAUTION: I modified 'evaluate' so that mdict gets stored in C:\Users\ch20s351, from where I can get it
 
 
+
+#%%
 if __name__ == '__main__':
     current = os.getcwd()
     titaniach = Path(current.split('Caroline')[0]) / 'Caroline'
 
-    config = {
-        'save': True,
-        'evaluate_now': True,
-        'mask_threshold': 0.5,  # should be 0.5 to be consistent with metrics...
-        'score_thresh': 0.5,  # FOR SAM
-        'png': True,
-        'pdf': False,
-    }
+    # import modules from folder above:
+    import sys
+    sys.path.append((titaniach / 'lineament_detection/Reinforcement_Learning_SAM/europa_surface').as_posix())
+    from LineaMapper_v2_to_img import get_sam_model, load_LineaMapper, get_rcnnsam_output, get_rcnnSAM, batch_process_rcnnsam
+
+    # import sys
+    # sys.path.append((titaniach / 'lineament_detection/Reinforcement_Learning_SAM/europa_surface/src/performance/detection').as_posix())
+    # from detection.engine import evaluate_fromoutput
+
 
     basepath = titaniach / 'lineament_detection/RegionalMaps_CH_NT_EJL_LP/mapping/'
 
-    datafolders = [
+    def run_main(datafolders, shiftbools, img_size):
+        '''
+            for changes in datafolder coupled to img_size
+        '''
+
+        model_names = [
+            'rcnnSAM_v1',   # LineaMapper v1.0
+        ]
+        runs = ['run01']
+        # hdfdatafolder = Path('Z:\Groups\PIG\Caroline\lineament_detection\Reinforcement_Learning_SAM/test_SAMv1')
+
+        ckpts_path = titaniach / 'lineament_detection/Reinforcement_Learning_SAM/europa_surface/ckpts'
+        rcnnsam_args = {
+                'num_classes': 5,
+                'img_size': img_size, # update to 112x112 dataset
+                'ckpt_path': ckpts_path.joinpath('instseg_bb.pt'),
+                'model_name': ckpts_path.joinpath("Mask_R-CNN_v1_1_17ESREGMAP02_part01_run08_end_model.pt"),
+                'minsize': 200,
+                'maxsize': 300, 
+                'device': torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu'),
+            }
+
+        config = {
+            'runs': runs,
+            'model_names': model_names,
+            'save': True,
+            'evaluate_now': True,
+            'mask_threshold': 0.5,  # should be 0.5 to be consistent with metrics...
+            'score_thresh': 0.5,  # FOR SAM
+            'png': True,
+            'pdf': False,
+        }
+        # run main
+        main(config, datafolders, shiftbools, rcnnsam_args)
+
+        return
+
+
+
+    datafolders224 = [
         # "2024_02_14_11_22_Regiomaps_112x112",
         "2023_10_16_15_34_Regiomaps_224x224",  # correct comparison for SAM
         "val_and_train_pytorch_224x224_LINEAMAPPER_v1.0", # old test set, 224x224
         # "val_and_train_pytorch_112x112_LINEAMAPPER_v1.0", # old test set, re-tiled to 112x112
     ]
+    shiftbools = [False, True] # false for regiomaps, true vor v1.0
 
-    model_names = [
-        'SAM_v1',   # LineaMapper v1.0
+    run_main(datafolders224, shiftbools, 224)
+
+    datafolders112 = [
+        "2024_02_14_11_22_Regiomaps_112x112",
+        # "2023_10_16_15_34_Regiomaps_224x224",  # correct comparison for SAM
+        # "val_and_train_pytorch_224x224_LINEAMAPPER_v1.0", # old test set, 224x224
+        "val_and_train_pytorch_112x112_LINEAMAPPER_v1.0", # old test set, re-tiled to 112x112
     ]
-    runs = ['run01']
-    hdfdatafolder = Path('Z:\Groups\PIG\Caroline\lineament_detection\Reinforcement_Learning_SAM/test_SAMv1')
-
-    main(config, datafolders, hdfdatafolder)
+    shiftbools = [False, True] # false for regiomaps, true vor v1.0
+    
+    run_main(datafolders112, shiftbools, 112)
+    
 
 #%%

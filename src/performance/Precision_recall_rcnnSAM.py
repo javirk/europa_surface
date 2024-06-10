@@ -134,7 +134,7 @@ rec_thrs = np.array([0., 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0
                      0.99, 1.])
 
 
-def main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, subset='test'):
+def main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, rcnnsam_args, subset='test'):
     if isinstance(hdfdatafolder, str):
         hdfdatafolder = Path(hdfdatafolder)
     for datafolder, shift5to4 in zip(datafolders, shiftbools):
@@ -160,8 +160,7 @@ def main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, sub
         coco = get_coco_api_from_dataset(dataloader.dataset)  # this returns an object <pycocotools.coco.COCO>
         coco_evaluator = CocoEvaluator(coco, iou_types)
 
-        # load full model output (we load only the files in the dataloader, in the correct order)
-        model_output = hdf_to_output(hdfdatafolder, dataloader)
+        mask_generator, box_generator = get_rcnnSAM(rcnnsam_args)
 
         # from engine.py
         for imt_idx, (images, targets) in enumerate(dataloader):
@@ -171,7 +170,10 @@ def main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, sub
             if torch.cuda.is_available():
                 torch.cuda.synchronize()
             # get model predictions
-            outputs = model_output[imt_idx * batch_size: imt_idx * batch_size + len(images)]
+            # batch process:
+            outputs = batch_process_rcnnsam(mask_generator, box_generator, images)
+
+            # outputs = model_output[imt_idx * batch_size: imt_idx * batch_size + len(images)]
             # for target, output in zip(targets, outputs):
             #     print(target['path'].stem)
             #     print(output['corrpath'].stem)
@@ -317,7 +319,7 @@ def main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, sub
             axs.set_ylim(0, 1.05)
             axs.legend(custom_lines, list(cd.values()) + [r'score $\leq$ 0.5'])
             fig_path = (root / save_path).joinpath(
-                f'precision-recall_curve_T{t_ind}_A{a_ind}_M{m_ind}_for_{itd[ioutype]}_{subset}_{datafolder}.pdf'
+                f'rcnnSAM_precision-recall_curve_T{t_ind}_A{a_ind}_M{m_ind}_for_{itd[ioutype]}_{subset}_{datafolder}.pdf'
             )
             fig.savefig(fig_path)
             fig.show()
@@ -334,7 +336,7 @@ def main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, sub
         df.index = ['bands', 'double ridges', 'ridge complexes', 'undiff. lineae', 'average']
         # save as csv
         csv_path = (root / save_path).joinpath(
-            f'precision_recall_at_score0.5_IoU0.5__T{t_ind}_A{a_ind}_M{m_ind}_{subset}_{datafolder}.csv'
+            f'rcnnSAM_precision_recall_at_score0.5_IoU0.5__T{t_ind}_A{a_ind}_M{m_ind}_{subset}_{datafolder}.csv'
         )
         df.to_csv(csv_path)
 
@@ -342,8 +344,9 @@ def main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, sub
 def get_caroline_config():
     current = os.getcwd()
     root = Path(current.split('Caroline')[0]) / 'Caroline'
+
     datafolders = [
-        # "2024_02_14_11_22_Regiomaps_112x112",
+        # "2024_02_14_11_22_Regiomaps_112x112", # best comparison for rcnnSAM
         "2023_10_16_15_34_Regiomaps_224x224",  # correct comparison for SAM
         "val_and_train_pytorch_224x224_LINEAMAPPER_v1.0",  # old test set, 224x224
         # "val_and_train_pytorch_112x112_LINEAMAPPER_v1.0", # old test set, re-tiled to 112x112
@@ -352,10 +355,11 @@ def get_caroline_config():
     save_path = 'lineament_detection/RegionalMaps_CH_NT_EJL_LP/mapping/output/precision_recall/SAM_v1'
     #  load model and data
     data_root = root / 'lineament_detection/RegionalMaps_CH_NT_EJL_LP/mapping/data/tiles'
+    europa_root = root / 'lineament_detection/Reinforcement_Learning_SAM/europa_surface'
     hdfdatafolder = root / 'lineament_detection/Reinforcement_Learning_SAM/test_SAMv1'
     subset = 'test'
 
-    return root, data_root, datafolders, hdfdatafolder, save_path, subset, shiftbools
+    return root, data_root, europa_root, datafolders, hdfdatafolder, save_path, subset, shiftbools
 
 
 def get_javier_config(hdfdatafolder):
@@ -368,25 +372,44 @@ def get_javier_config(hdfdatafolder):
     save_path = os.path.join(hdfdatafolder, 'precision_recall')
     #  load model and data
     data_root = Path('/Users/javier/Documents/datasets/europa')
+    europa_root = Path('..') # insert your path to 'europa_surface'
     subset = 'test_raw'
 
-    return root, data_root, datafolders, hdfdatafolder, save_path, subset, shiftbools
+    return root, data_root, europa_root, datafolders,  hdfdatafolder, save_path, subset, shiftbools
 
 #%%
 if __name__ == '__main__':
     user = 'caroline'
+    img_size = 224 # or 112, if you change datafolders
+
     if user == 'javier':
         hdf_folder = './results/Galileo/Galileo_20240531-102944'
         root, data_root, datafolders, hdfdatafolder, save_path, subset, shiftbools = get_javier_config(hdf_folder)
     elif user == 'caroline':
-        root, data_root, datafolders, hdfdatafolder, save_path, subset, shiftbools = get_caroline_config()
+        root, data_root, europa_root, datafolders, hdfdatafolder, save_path, subset, shiftbools = get_caroline_config()
     else:
         raise NotImplementedError
+
+    # import modules from folder above: is there a better way?
+    import sys
+    sys.path.append((europa_root).as_posix())
+    from LineaMapper_v2_to_img import get_sam_model, load_LineaMapper, get_rcnnsam_output, get_rcnnSAM, batch_process_rcnnsam
+
+    ckpts_path = europa_root / 'ckpts'
+    rcnnsam_args = {
+            'num_classes': 5,
+            'img_size': img_size, # 112 or 224 ?
+            'ckpt_path': ckpts_path.joinpath('instseg_bb.pt'),
+            'model_name': ckpts_path.joinpath("Mask_R-CNN_v1_1_17ESREGMAP02_part01_run08_end_model.pt"),
+            'minsize': 200,
+            'maxsize': 300, 
+            'device': torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu'),
+        }
 
     os.makedirs(root / save_path, exist_ok=True)
 
     # train on the GPU or on the CPU, if a GPU is not available
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, subset=subset)
+    main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, rcnnsam_args, subset=subset)
 
 # %%
