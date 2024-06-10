@@ -226,7 +226,7 @@ def parse_arguments():
     parser.add_argument(
         "--dataset-type",
         default='all',
-        choices=['all', 'old', 'new'],
+        choices=['all', 'old', 'new', 'new_112'],
         help="Which dataset to use",
     )
 

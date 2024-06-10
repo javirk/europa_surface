@@ -26,7 +26,7 @@
 ##SBATCH --ntasks-per-node=1
 
 # on gpu partition
-#SBATCH --gres=gpu:a100:1
+#SBATCH --gres=gpu:rtx3090:1
 
 # Set the current working directory.
 # All relative paths used in the job script are relative to this directory
@@ -37,8 +37,8 @@
 ##SBATCH --array=0-11%8
 
 # Main Python code below this line
-PYTHONPATH="./" python main.py --batch-size=16 --lr=0.0005250000000000001 --wd=0.01 --epochs=50 --workers 8 \
+PYTHONPATH="./" python main.py --batch-size=128 --lr=8e-4 --wd=0.01 --epochs=400 --workers 8 \
   --data-location=/storage/workspaces/artorg_aimi/ws_00000/javier/datasets/europa/ \
-  --eval-datasets=GalileoDataset --train-dataset=Galileo --loss-fn=DiceLoss,FocalLoss,IoUHeadLoss --loss-weights=1.,20.,1. \
-  --wandb --exp-name=Galileo --save=./results/ --pretrained-model=./segment_anything/checkpoints/mobile_sam.pt \
-  --dataset-type=new_112 --training-split=train --model=vit_t
+  --eval-datasets=GalileoDataset --train-dataset=Galileo --loss-fn=DiceLoss,FocalLoss,IoUHeadLoss \
+  --loss-weights=1.0,20.0,1.0 --wandb --exp-name=Galileo --save=./results/ --pretrained-model=./ckpts/tiny_112.pt \
+  --task training_iterative --scheduler=constant --dataset-type=new_112 --training-split=train --model=vit_t

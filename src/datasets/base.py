@@ -148,6 +148,9 @@ class DatasetBase(torch.utils.data.Dataset):
         if self.transforms is not None:
             img, mask, instance_mask, bounding_boxes = self.transforms(img, mask, instance_mask, bounding_boxes)
 
+        if min(img.shape[1:]) < self.min_size and self.transform_resize_min is not None:
+            img, mask, instance_mask, bounding_boxes = self.transform_resize_min(img, mask, instance_mask, bounding_boxes)
+
         if len(mask.unique()) == 1 or (len(instance_mask.unique()) == 1 and instance_mask.unique()[0] == 0):
             return None
 
@@ -175,8 +178,12 @@ class DatasetBase(torch.utils.data.Dataset):
             # point = torch.tensor(
             #     [point[2][point_idx], point[1][point_idx]])  # mask is 1xHxW, so we discard the first dim.
 
-            # Choose the instance, then sample a point from it
-            instance_num = np.random.choice(instance_mask.unique()[1:])  # Select from any but background
+            # Choose the instance, then sample a point from it.
+            # I have to be careful, sometimes the images do not have background. In any case, it should not be considered.
+            instances = instance_mask.unique()
+            if instances[0] == 0:
+                instances = instances[1:]
+            instance_num = np.random.choice(instances)  # Select from any but background
             temp_mask_instance = (instance_mask[0] == instance_num)
             points = np.where(temp_mask_instance)
             point_idx = np.random.choice(len(points[0]))

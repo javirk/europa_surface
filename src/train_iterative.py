@@ -40,9 +40,9 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_i
     loss_fn = get_loss_fn(args)
     optimizer, scheduler = build_optimizer_scheduler(args, model, num_batches)
 
-    evaluate(model, args, args.eval_datasets, {'epoch': initial_epoch, 'step': 0}, prompting_eval=['none'])
-    evaluate(model, args, args.eval_datasets, {'epoch': initial_epoch, 'step': 0}, prompting_eval=['point'])
-    evaluate(model, args, args.eval_datasets, {'epoch': initial_epoch, 'step': 0}, prompting_eval=['bb'])
+    evaluate(model, args, args.eval_datasets, {'epoch': initial_epoch, 'step': 0}, split='test', prompting_eval=['none'])
+    evaluate(model, args, args.eval_datasets, {'epoch': initial_epoch, 'step': 0}, split='test', prompting_eval=['point'])
+    evaluate(model, args, args.eval_datasets, {'epoch': initial_epoch, 'step': 0}, split='test', prompting_eval=['bb'])
 
     for epoch in range(args.epochs):
         print(f'Epoch {epoch}')
@@ -114,15 +114,15 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_i
         if args.wandb:
             wandb.log({'train/loss': loss_sum / num_batches, **losses}, step=wandb_step)
 
-        evaluate(model, args, args.eval_datasets, {'epoch': epoch, 'step': wandb_step}, split='val',
+        evaluate(model, args, args.eval_datasets, {'epoch': epoch, 'step': wandb_step}, split='test',
                  prompting_eval=['point'])
         evaluate(model, args, args.eval_datasets, {'epoch': epoch, 'step': wandb_step}, split='train',
                  prompting_eval=['point'])
-        evaluate(model, args, args.eval_datasets, {'epoch': epoch, 'step': wandb_step}, split='val',
+        evaluate(model, args, args.eval_datasets, {'epoch': epoch, 'step': wandb_step}, split='test',
                  prompting_eval=['none'])
         evaluate(model, args, args.eval_datasets, {'epoch': epoch, 'step': wandb_step}, split='train',
                  prompting_eval=['none'])
-        evaluate(model, args, args.eval_datasets, {'epoch': epoch, 'step': wandb_step}, split='val',
+        evaluate(model, args, args.eval_datasets, {'epoch': epoch, 'step': wandb_step}, split='test',
                  prompting_eval=['bb'])
         evaluate(model, args, args.eval_datasets, {'epoch': epoch, 'step': wandb_step}, split='train',
                  prompting_eval=['bb'])
