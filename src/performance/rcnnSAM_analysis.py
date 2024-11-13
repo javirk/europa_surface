@@ -58,9 +58,10 @@ def segmask_box(img, target, threshold=0.5, score_thresh=0.5, alpha=0.8, colors=
     if 'scores' in target.keys():
         # get scores (they are ordered!) and cut off at threshold
         scores = target["scores"]
-        cutoff_idc = torch.where(scores > score_thresh)
+        cutoff_idc = torch.where(scores > score_thresh) # added .cpu()
         # example (tensor([0, 1, 2, 3], device='cuda:0'),)
-
+        # print(target["masks"].device)
+        # print(cutoff_idc.device)
         # get masks and boxes
         masks = target["masks"][cutoff_idc].cpu()
         boxes = target["boxes"][cutoff_idc].cpu()
@@ -203,86 +204,105 @@ def segmask_box(img, target, threshold=0.5, score_thresh=0.5, alpha=0.8, colors=
 def main(config, datafolders, shiftbools, rcnnsam_args):
     '''
     for debugging, use:
-        run = runs[0]
-        model_name = model_names[0]
-        datafolder = datafolders112[1]
+        run = config['runs'][0]
+        model_name = config['model_names'][0]
+        datafolders = datafolders224
+        datafolder = datafolders224[0]
+        shift5to4 = False
     '''
-    for run, model_name in zip(config['runs'], config['model_names']):
-        for datafolder, shift5to4 in zip(datafolders, shiftbools):
+    # for run, model_name in zip():
+    for datafolder, shift5to4, run, model_name in zip(datafolders, shiftbools, config['runs'], config['model_names']):
 
-            figsubset = run + '_' + model_name
+        figsubset = run + '_' + model_name
 
-            # following loop creates folders with predictions on the test set
-            # and evaluates metrics on them if chosen (these get saved in the home directory, because I needed to
-            # implement it right in ...cocoeval.py source code)
+        # following loop creates folders with predictions on the test set
+        # and evaluates metrics on them if chosen (these get saved in the home directory, because I needed to
+        # implement it right in ...cocoeval.py source code)
 
-            # already here, get the folder path for saving
-            now = datetime.now()
-            dt_ymd = now.strftime("%Y_%m_%d_%H_%M_%S_")
+        # already here, get the folder path for saving
+        now = datetime.now()
+        dt_ymd = now.strftime("%Y_%m_%d_%H_%M_%S_")
 
-            ####
-            #  visualize predictions
-            # pick one image from the test set
-            # train on the GPU or on the CPU, if a GPU is not available
-            device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        ####
+        #  visualize predictions
+        # pick one image from the test set
+        # train on the GPU or on the CPU, if a GPU is not available
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
-            # automatically look inside this hard-coded folder for the datafolder subfolder
-            mygalipath = basepath / 'data/tiles' / datafolder
-            # validation set
-            dataset = Lineament_dataloader(mygalipath / 'test', transform=None, bbox_threshold=20, shift5to4=shift5to4)
+        # automatically look inside this hard-coded folder for the datafolder subfolder
+        mygalipath = basepath / 'data/tiles' / datafolder
+        # validation set
+        dataset = Lineament_dataloader(mygalipath / 'test', transform=None, bbox_threshold=20, shift5to4=shift5to4)
 
-            # get class_dict
-            class_dict = dataset.load_class_dict()
-            # cat_dict = {v: k for k, v in dataset.load_class_dict().items()}
-            # num_classes = len(class_dict) + 1
+        # get class_dict
+        class_dict = dataset.load_class_dict()
+        # cat_dict = {v: k for k, v in dataset.load_class_dict().items()}
+        # num_classes = len(class_dict) + 1
 
-            # get the model using our helper function
-            device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        # get the model using our helper function
+        batch_size = 6
+        dataloader_val = torch.utils.data.DataLoader(
+            dataset, batch_size=batch_size, shuffle=False, collate_fn=lambda x: list(zip(*x)))
+        # # check output:
+        # images, targets = next(iter(dataset))
+        # images = list(image for image in images)
+        # targets = [{k: v for k, v in t.items()} for t in targets]
+        # output = model(images,targets)   # Returns losses and detections
 
-            batch_size = 6
-            dataloader_val = torch.utils.data.DataLoader(
-                dataset, batch_size=batch_size, shuffle=False, collate_fn=lambda x: list(zip(*x)))
-            # # check output:
-            # images, targets = next(iter(dataset))
-            # images = list(image for image in images)
-            # targets = [{k: v for k, v in t.items()} for t in targets]
-            # output = model(images,targets)   # Returns losses and detections
-            # rcnnSAM
+        if 'bbox' in str(rcnnsam_args['ckpt_path']):
             mask_generator, box_generator = get_rcnnSAM(rcnnsam_args)
+        elif 'instseg' in str(rcnnsam_args['ckpt_path']):
+            mask_generator = get_samPoints(rcnnsam_args)
 
-            model_output = []
+        model_output = []
 
-            # PLOT
-            start_time = time.time()
-            for idx in range(len(dataset)): # len(dataset)
-                img, target = dataset[idx]
-                # # include a shift5to4-filter here!
-                # # loop through targets['labels]
-                # del_idcs = []
-                # for laidx in range(0, len(target['labels'])):
-                #     if target['labels'][laidx] == 4:
-                #         print('deleting 4')
-                #         target['labels'] 
-                #         del_idcs.append(laidx)
-                #     if target['labels'][laidx] == 5:
-                #         print('shifting to 4')
-                #         target['labels'][laidx] = 4
-                # now delete in reverse order, because it's lists
+        # PLOT
+        start_time = time.time()
+        for idx in range(len(dataset)): # len(dataset)
+            img, target = dataset[idx]
+            # # include a shift5to4-filter here!
+            # # loop through targets['labels]
+            # del_idcs = []
+            # for laidx in range(0, len(target['labels'])):
+            #     if target['labels'][laidx] == 4:
+            #         print('deleting 4')
+            #         target['labels'] 
+            #         del_idcs.append(laidx)
+            #     if target['labels'][laidx] == 5:
+            #         print('shifting to 4')
+            #         target['labels'][laidx] = 4
+            # now delete in reverse order, because it's lists
 
-                result = get_rcnnsam_output(mask_generator, box_generator, img)
-                model_output.append(result[0])
 
-                # and retrieve prediction 
-                prediction = model_output[idx]
-                # print("--- %s seconds for this ----" % (time.time() - start_time))
-                # time needed: 1.53 seconds for 11 images, or 1.48 s for 10 images
-                # prediction is like 'target'
-                # use segmask function from data_viewer
+            # get model predictions
+            if 'bbox' in str(rcnnsam_args['ckpt_path']):
+                if config['prompt_from_GR']:
+                    result = get_boxsam_output(mask_generator, target['boxes'], target['labels'], img.to(device), rcnnsam_args, cpu_output=True)
+                    model_output.append(result)                    
+                else:
+                    # use RCNN box prompoting:
+                    result = get_rcnnsam_output(mask_generator, box_generator, img.to(device))
+                    model_output.append(result[0])
 
+            elif 'instseg' in str(rcnnsam_args['ckpt_path']):
+                # use Point prompting:
+                result = prompt_SamPoints(mask_generator, img.to(device), rcnnsam_args, cpu_output=True)
+                model_output.append(result)
+
+            # print(result)
+
+            # and retrieve prediction 
+            prediction = model_output[idx]
+            # print("--- %s seconds for this ----" % (time.time() - start_time))
+            # time needed: 1.53 seconds for 11 images, or 1.48 s for 10 images
+            # prediction is like 'target'
+            # use segmask function from data_viewer
+
+            if config['plot']:
                 # index prediction[0] to get rid of batch dimension
                 t, masks = segmask_box(img, prediction, threshold=config['mask_threshold'],
-                                       score_thresh=config['score_thresh'], alpha=0.8, colors=None, width=1, fontsize=6,
-                                       font=None, del_boxes=False)
+                                        score_thresh=config['score_thresh'], alpha=0.8, colors=None, width=1, fontsize=6,
+                                        font=None, del_boxes=False)
                 # ground truth:
                 tgr, masks_gr = segmask_box(img, target, threshold=None, alpha=0.8, colors=None, width=1, fontsize=6,
                                             font=None, del_boxes=False)
@@ -296,7 +316,7 @@ def main(config, datafolders, shiftbools, rcnnsam_args):
                 # ax[1].imshow(masks)
                 # masks and bounding boxes
                 # ax[1].set_title('model prediction')
-                ax[1].imshow(t.moveaxis(0, 2))  # for EGU, don't plot bboxes because there are too many..
+                ax[1].imshow(t.moveaxis(0, 2)) 
                 # ground truth
                 # ax[2].set_title('ground truth')
                 ax[2].imshow(tgr.moveaxis(0, 2))
@@ -315,9 +335,9 @@ def main(config, datafolders, shiftbools, rcnnsam_args):
                 if config['save']:
                     # pdf folder
                     if config['pdf']:
-                        save_path_pdf = basepath / 'output/maskrcnn' / (dt_ymd + run) / 'pdf'
+                        save_path_pdf = basepath / 'output/maskrcnn' / (dt_ymd + figsubset) / 'pdf'
                         fig_path = save_path_pdf.joinpath(
-                            target['path'].stem + '_' + figsubset + '_' + str(idx) + run + '_score_thr_' + str(config['score_thresh']) + '_mask_thr_' + str(config['mask_threshold']) + '.pdf'
+                            target['path'].stem + '_' + str(idx) + run + '_score_thr_' + str(config['score_thresh']) + '_mask_thr_' + str(config['mask_threshold']) + '.pdf'
                         )
                         os.makedirs(save_path_pdf, exist_ok=True)
                         fig.savefig(fig_path, bbox_inches='tight', facecolor='white')
@@ -325,34 +345,36 @@ def main(config, datafolders, shiftbools, rcnnsam_args):
 
                     # png folder
                     if config['png']:
-                        save_path_png = basepath / 'output/maskrcnn' / (dt_ymd + run) / 'png'
-                        fig_path = save_path_png.joinpath(f'{target["path"].stem}_{figsubset}_{str(idx)}{run}.png')
+                        save_path_png = basepath / 'output/maskrcnn' / (dt_ymd + figsubset) / 'png'
+                        fig_path = save_path_png.joinpath(f'{target["path"].stem}_{str(idx)}{run}.png')
                         os.makedirs(save_path_png, exist_ok=True)
                         fig.savefig(fig_path, bbox_inches='tight', facecolor='white')
                         # to make it shorter: '_threshold_' + str(score_thresh) + '_mask_thr_' + str(mask_threshold) +
 
                     # save individual files
-                    indpath = basepath / 'output/maskrcnn' / (dt_ymd + run) / 'png' / 'individuals'
+                    indpath = basepath / 'output/maskrcnn' / (dt_ymd + figsubset) / 'png' / 'individuals'
                     os.makedirs(indpath, exist_ok=True)
-                    imgimg.save(indpath.joinpath(figsubset + str(idx) + run + '_img.png'), quality=95)
-                    imgpreds.save(indpath.joinpath(figsubset + str(idx) + run + '_prediction.png'), quality=95)
-                    imggr.save(indpath.joinpath(figsubset + str(idx) + run + '_groundtruth.png'), quality=95)
+                    imgimg.save(indpath.joinpath(str(idx) + run + '_img.png'), quality=95)
+                    imgpreds.save(indpath.joinpath(str(idx) + run + '_prediction.png'), quality=95)
+                    imggr.save(indpath.joinpath(str(idx) + run + '_groundtruth.png'), quality=95)
                     plt.close('all')
-                # #  note: output for several
-                # NEW: get model output of SAM in correct format:
-                # model_output = hdf_to_output(hdfdatafolder, dataloader_val)  #
+            # #  note: output for several
+            # NEW: get model output of SAM in correct format:
+            # model_output = hdf_to_output(hdfdatafolder, dataloader_val)  #
 
-                # check length:
-                print(f'length of dataset is {len(dataset)}, length of model_output is {len(model_output)}')
+            # check length:
+            print(f'length of dataset is {len(dataset)}, length of model_output is {len(model_output)}')
 
-            # after model_output is complete
-            # EVALUATE
-            if config['evaluate_now']:
-                # I've changed 'evaluate' to output individual class APs
-                mdict = evaluate_fromoutput(model_output, dataloader_val, device=device, savepath='./metrics')
-                mdict['map']  # this is the total map
-                mdict['map_per_class']  # this is a tensor
-                # CAUTION: I modified 'evaluate' so that mdict gets stored in C:\Users\ch20s351, from where I can get it
+        # after model_output is complete
+        # EVALUATE
+        if config['evaluate_now']:
+            # I've changed 'evaluate' to output individual class APs
+            evalpath = f'./metrics/{datafolder}'
+            os.makedirs(evalpath, exist_ok=True)
+            # calculate and save!
+            mdict = evaluate_fromoutput(model_output, dataloader_val, device=device, savepath=evalpath)
+            mdict['map']  # this is the total map
+            mdict['map_per_class']  # this is a tensor
 
 
 
@@ -364,7 +386,7 @@ if __name__ == '__main__':
     # import modules from folder above:
     import sys
     sys.path.append((titaniach / 'lineament_detection/Reinforcement_Learning_SAM/europa_surface').as_posix())
-    from LineaMapper_v2_to_img import get_sam_model, load_LineaMapper, get_rcnnsam_output, get_rcnnSAM, batch_process_rcnnsam
+    from LineaMapper_v2_to_img import get_sam_model, load_LineaMapper, get_rcnnsam_output, get_rcnnSAM, batch_process_rcnnsam, prompt_SamPoints, get_samPoints, get_boxsam_output
 
     # import sys
     # sys.path.append((titaniach / 'lineament_detection/Reinforcement_Learning_SAM/europa_surface/src/performance/detection').as_posix())
@@ -373,26 +395,33 @@ if __name__ == '__main__':
 
     basepath = titaniach / 'lineament_detection/RegionalMaps_CH_NT_EJL_LP/mapping/'
 
-    def run_main(datafolders, shiftbools, img_size):
+    def run_main(datafolders, shiftbools, img_size, sam_modelname, ckpts_path=titaniach / 'lineament_detection/Reinforcement_Learning_SAM/europa_surface/ckpts', GR=False):
         '''
             for changes in datafolder coupled to img_size
+            img_size=112
+            sam_modelname = 'bbox_vit_b_final.pt'
+            datafolders = [ "2024_06_04_11_05_Regiomaps_112x112_rcnnSAM"]
+            shiftbools = [False]
+            GR =True
         '''
 
         model_names = [
-            'rcnnSAM_v1',   # LineaMapper v1.0
+            'rcnnSAM_v2' for x in datafolders
         ]
-        runs = ['run01']
+        runs = ['{}_{}'.format(x.split('_')[-2], x.split('_')[-1]) for x in datafolders] # I use this now for the datafolder (will go into 'figsubset')
         # hdfdatafolder = Path('Z:\Groups\PIG\Caroline\lineament_detection\Reinforcement_Learning_SAM/test_SAMv1')
 
-        ckpts_path = titaniach / 'lineament_detection/Reinforcement_Learning_SAM/europa_surface/ckpts'
+        # ckpts_path = titaniach / 'lineament_detection/Reinforcement_Learning_SAM/europa_surface/ckpts'
+        modpath = ckpts_path.joinpath(sam_modelname)
         rcnnsam_args = {
                 'num_classes': 5,
                 'img_size': img_size, # update to 112x112 dataset
-                'ckpt_path': ckpts_path.joinpath('instseg_bb.pt'),
-                'model_name': ckpts_path.joinpath("Mask_R-CNN_v1_1_17ESREGMAP02_part01_run08_end_model.pt"),
+                'ckpt_path': modpath, # 'bbox_vit_b_final.pt'),
+                'model_name': ckpts_path.joinpath("Mask_R-CNN_v1_1_17ESREGMAP02_part01_run10_end_model.pt"),
                 'minsize': 200,
                 'maxsize': 300, 
                 'device': torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu'),
+                'sam_modus': sam_modelname.split('_')[1] + '_' + sam_modelname.split('_')[2], #'vit_b',
             }
 
         config = {
@@ -400,37 +429,82 @@ if __name__ == '__main__':
             'model_names': model_names,
             'save': True,
             'evaluate_now': True,
+            'plot': True,
             'mask_threshold': 0.5,  # should be 0.5 to be consistent with metrics...
             'score_thresh': 0.5,  # FOR SAM
             'png': True,
             'pdf': False,
+            'prompt_from_GR': GR,
         }
         # run main
         main(config, datafolders, shiftbools, rcnnsam_args)
 
         return
-
-
-
-    datafolders224 = [
-        # "2024_02_14_11_22_Regiomaps_112x112",
-        "2023_10_16_15_34_Regiomaps_224x224",  # correct comparison for SAM
-        "val_and_train_pytorch_224x224_LINEAMAPPER_v1.0", # old test set, 224x224
-        # "val_and_train_pytorch_112x112_LINEAMAPPER_v1.0", # old test set, re-tiled to 112x112
+    #%%
+    # photomet comparison
+    datafolders_LS = [
+        "2024_07_05_09_04_photomet", # photomet!
     ]
-    shiftbools = [False, True] # false for regiomaps, true vor v1.0
+    shiftbools = [False] # false for regiomaps, true vor v1.0
+    run_main(datafolders_LS, shiftbools, 112, 'bbox_vit_b_final.pt')
+    run_main(datafolders_LS, shiftbools, 112, 'bbox_vit_b_final.pt', GR=True)
 
-    run_main(datafolders224, shiftbools, 224)
+    # # point prompting on Regiomaps_112x112
+    # datafolders112 = [
+    #     "2024_06_04_11_05_Regiomaps_112x112_rcnnSAM", # new 112x112 data, including 'empty' training tiles.
+    # ]
+    # shiftbools = [False] # false for regiomaps, true vor v1.0
+    # run_main(datafolders112, shiftbools, 112, 'instseg_vit_b_final.pt')
 
-    datafolders112 = [
-        "2024_02_14_11_22_Regiomaps_112x112",
-        # "2023_10_16_15_34_Regiomaps_224x224",  # correct comparison for SAM
-        # "val_and_train_pytorch_224x224_LINEAMAPPER_v1.0", # old test set, 224x224
-        "val_and_train_pytorch_112x112_LINEAMAPPER_v1.0", # old test set, re-tiled to 112x112
-    ]
-    shiftbools = [False, True] # false for regiomaps, true vor v1.0
-    
-    run_main(datafolders112, shiftbools, 112)
-    
+
+    # ###### prompt with GROUND TRUTH bounding boxes:
+    # datafolders112 = [
+    #     "2024_06_04_11_05_Regiomaps_112x112_rcnnSAM", # new 112x112 data, including 'empty' training tiles.
+    # ]
+    # shiftbools = [False] # false for regiomaps, true vor v1.0
+    # run_main(datafolders112, shiftbools, 112, 'bbox_vit_b_final.pt', GR=True)    
+
+
+    # datafolders224 = [
+    #     # "2024_02_14_11_22_Regiomaps_112x112",
+    #     "2023_10_16_15_34_Regiomaps_224x224",  # correct comparison for SAM
+    #     "val_and_train_pytorch_224x224_LINEAMAPPER_v1.0", # old test set, 224x224
+    #     # "val_and_train_pytorch_112x112_LINEAMAPPER_v1.0", # old test set, re-tiled to 112x112
+    # ]
+    # shiftbools = [False, True] # false for regiomaps, true vor v1.0
+    # run_main(datafolders224, shiftbools, 224, 'bbox_vit_b_final.pt')
+
+
+    # datafolders112 = [
+    #     # "2024_02_14_11_22_Regiomaps_112x112",
+    #     "2024_06_04_11_05_Regiomaps_112x112_rcnnSAM", # new 112x112 data, including 'empty' training tiles.
+    #     # "2023_10_16_15_34_Regiomaps_224x224",  # correct comparison for SAM
+    #     # "val_and_train_pytorch_224x224_LINEAMAPPER_v1.0", # old test set, 224x224
+    #     "val_and_train_pytorch_112x112_LINEAMAPPER_v1.0", # old test set, re-tiled to 112x112
+    # ]
+    # shiftbools = [False, True] # false for regiomaps, true vor v1.0
+    # run_main(datafolders112, shiftbools, 112, 'bbox_vit_b_final.pt')
+
+    # # vit-t rcnnSAM
+    # ckpts_path = titaniach / 'lineament_detection/Reinforcement_Learning_SAM/europa_surface' / 'ckpts'
+    # # get folders in this directory, and then files:
+    # all_models_paths = sorted((ckpts_path / 'OneDriveModels_1_10-06-2024').glob('*/*.pt'))
+
+    # # tests:
+    # for modpath in all_models_paths:
+    #     # Regiomaps_112x112
+    #     datafolders112 = [
+    #         "2024_06_04_11_05_Regiomaps_112x112_rcnnSAM", # new 112x112 data, including 'empty' training tiles.
+    #     ]
+    #     shiftbools = [False] # false for regiomaps, true vor v1.0
+    #     # for vit-t
+    #     if 'vitt' in modpath.as_posix():
+    #         if 'final' in modpath.stem:
+    #             print(modpath)
+    #             run_main(datafolders112, shiftbools, 112, modpath.name)
+
+
+
+
 
 #%%

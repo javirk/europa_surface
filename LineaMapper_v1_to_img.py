@@ -763,9 +763,9 @@ def get_predictions(obj):
 
         # image must be a torch tensor, not numpy
         with torch.no_grad():
-            # see below # prediction = obj.model(batch)
+            prediction = obj.model(batch)
             # prompt SAM with Mask R-CNN boxes
-            prediction = batch_process_rcnnsam(obj.mask_generator, obj.box_generator, batch)
+            # prediction = batch_process_rcnnsam(obj.mask_generator, obj.box_generator, batch)
         # move back to cpu
         for pred in prediction:
 
@@ -1444,8 +1444,8 @@ class LineaMapper():
 
         total_num_tiles = [] # count tiles for csv info
         # load the model with the weights for LineaMapper (LineaMapper v1.1.0)
-        # deprecated with rcnnSAM: self.model = load_LineaMapper(self.modelname, minsize=self.minsize, maxsize=self.maxsize, device=self.device)
-        self.mask_generator, self.box_generator = get_rcnnSAM(self.rcnnsam_args)
+        self.model = load_LineaMapper(self.modelname, self.num_classes, minsize=self.minsize, maxsize=self.maxsize, device=self.device)
+        # self.mask_generator, self.box_generator = get_rcnnSAM(self.rcnnsam_args)
 
         # new: split array into subimages (TODO: and stitch output together in the end)
         if np.max(self.arr.shape) > self.psags.cut_size:

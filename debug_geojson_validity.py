@@ -1028,10 +1028,8 @@ def calculate_mask_iou_for_merge_crit(obj):
         # check if one of the masks is contained (almost entirely) in the other:
         # this is the case if the number of pixels of the mask is almost or entirely the same as the intersection
         # merge if mask A is contained in B or mask B is contained in A with 10% overlap accuracy
-        # if they are of the same label!
-        if obj.labels[i] == obj.labels[j]:
-            if ((lenA <= intersection * 1.1) & (lenA >= intersection * 0.9)) or ((lenB <= intersection * 1.1) & (lenB >= intersection * 0.9)): # and (azimuth_difference <= obj.psags.azimuth_diff_range):
-                merge_idc.append((i,j))
+        if ((lenA <= intersection * 1.1) & (lenA >= intersection * 0.9)) or ((lenB <= intersection * 1.1) & (lenB >= intersection * 0.9)): # and (azimuth_difference <= obj.psags.azimuth_diff_range):
+            merge_idc.append((i,j))
 
         # add masks to merge_idc list if mask_iou is bigger than iou_thresh for debugging
         # if the differnce between azimuth1 and azimuth2 is withing the azimuth_range,
@@ -1204,9 +1202,7 @@ def merged_pred_to_geojson(obj):
         yarr = []
         for idx in range(len(contours)):
             # TODO: delete small 'fuzzy' predictions
-            # tested on 2024-06-29, in script 'debug_geojson_validity.py'
-            if len(contours[idx]) < 15:
-                continue
+            # TEST well!
 
             parrx = contours[idx][:,0][:,0] # the shape of contours[0] is (npoints, 1, 2). I take here simply all points with the first [:,0] indexing, and the first or second entries with the second [:,0].
             parry = contours[idx][:,0][:,1]
@@ -1602,26 +1598,276 @@ if __name__ == '__main__':
                         metavar="model architecture. vit_b or vit_t",
                         help='either vit_b or vit_t')        
 
-    # get arguments and put them into 'args' dict
-    pargs = parser.parse_args()
-    # test with: 
-    # pargs = parser.parse_args(["--geofile='/home' --savedir"])
-    # pargs = parser.parse_args(["--geofile=z:/Groups/PIG/Caroline/isis/data/galileo/usgs_photogrammetrically/Europa_Mosaics_Equirectangular/E6ESCRATER01_GalileoSSI_Equi-cog.tif", "--savedir=z:/Groups/PIG/Caroline/lineament_detection/pytorch_maskrcnn/output/full_imgs/test_LineaMapper_class", "--test=False", "--plot=True"])
-    # pargs = parser.parse_args(["--geofile=z:/Groups/PIG/Caroline/isis/data/galileo/usgs_photogrammetrically/Europa_Mosaics_Equirectangular/17ESREGMAP01EXCERPT1_GalileoSSI_Equi-cog.tif",  "--savedir=z:/Groups/PIG/Caroline/lineament_detection/pytorch_maskrcnn/output/full_imgs/test_LineaMapper_class"])
-    # pargs = parser.parse_args(["--geofile='/home'"])
-    # NOTE: I could not make it run with a class score dict somehow
+    # # get arguments and put them into 'args' dict
+    # pargs = parser.parse_args()
+    # # test with: 
+    # # pargs = parser.parse_args(["--geofile='/home' --savedir"])
+    # # pargs = parser.parse_args(["--geofile=z:/Groups/PIG/Caroline/isis/data/galileo/usgs_photogrammetrically/Europa_Mosaics_Equirectangular/E6ESCRATER01_GalileoSSI_Equi-cog.tif", "--savedir=z:/Groups/PIG/Caroline/lineament_detection/pytorch_maskrcnn/output/full_imgs/test_LineaMapper_class", "--test=False", "--plot=True"])
+    # # pargs = parser.parse_args(["--geofile=z:/Groups/PIG/Caroline/isis/data/galileo/usgs_photogrammetrically/Europa_Mosaics_Equirectangular/17ESREGMAP01EXCERPT1_GalileoSSI_Equi-cog.tif",  "--savedir=z:/Groups/PIG/Caroline/lineament_detection/pytorch_maskrcnn/output/full_imgs/test_LineaMapper_class"])
+    # # pargs = parser.parse_args(["--geofile='/home'"])
+    # # NOTE: I could not make it run with a class score dict somehow
 
-    # apply LineaMapper to input file
-    predMapper = LineaMapper(pargs)
-    predMapper.forward()
+    # # apply LineaMapper to input file
+    # predMapper = LineaMapper(pargs)
+    # predMapper.forward()
 
     # done
 
+#%% helper function: crop to extent
+
+def tight_image(image: torch.Tensor) -> torch.Tensor:
+    # image must have a channel input!
+    rows = (image != 0.0).any(dim=2)
+#     # apply column mask and go on with rows
+#     im2 = image[cols, :]
+    cols = (image != 0.0).any(dim=1)
+    
+    # What I have to do is to index the same cols and rows for each channel! of course!
+    # so we need to broadcast the arrays together, and whenever there is a True in one channel, it needs to be true in the other
+    
+    # loop over channel dimension (is there a better way how to do this?)
+    colst = torch.tensor([True])
+    rowst = torch.tensor([True])
+    for idx in range(image.shape[0]):
+        colst = torch.logical_and(colst, cols[idx])
+        rowst = torch.logical_and(rowst, rows[idx])
+    # print(colst[:10])
+    
+    # index with added rows first
+    imrf = image[:, rowst]
+    # in a second step, index with cols
+    imrcf = imrf[:, :, colst]
+
+    # apply row mask
+    return imrcf
+
+
+#%%
+
+# first, see what went wrong in the pickle file
+# load pickle file (with a known error)
+# e.g. 2024_06_14_21_54_11ESREGMAP01_GalileoSSI_Equi-cog_0.geojson in Z:\Groups\PIG\Caroline\lineament_detection\Reinforcement_Learning_SAM\europa_surface\output\LineaMapper_output\2024_06_14_21_17\json_files
+#  
+pkl_file = "2024_06_14_21_53_11ESREGMAP01_GalileoSSI_Equi-cog_0.pickle"
+pkl_path = titaniach / "lineament_detection/Reinforcement_Learning_SAM/europa_surface/output/LineaMapper_output/2024_06_14_21_17/pickle_files"
+
+with open(pkl_path.joinpath(pkl_file), 'rb') as f:
+    merged_pred = pickle.load(f)
+
+
+geotiff_path = titaniach / "lineament_detection/Reinforcement_Learning_SAM/europa_surface/data/geotiffs/for_preds/11ESREGMAP01_GalileoSSI_Equi-cog.tif"
+# get dataset:
+dataset = gdal.Open(geotiff_path.as_posix(), gdal.GA_ReadOnly)
+
+#%%
+# e.g.
+# {'boxes': tensor([[ 213.,   37.,  363.,  123.],
+#          [ 241.,   39.,  259.,   52.],
+#          [ 223.,   65.,  363.,  123.],
+#          ...,
+#          [1626., 2953., 1654., 2998.],
+#          [1703., 2903., 1734., 2937.],
+#          [1623., 2953., 1645., 2998.]]),
+#  'labels': tensor([1, 4, 1,  ..., 4, 3, 4], dtype=torch.int16),
+#  'scores': tensor([0.6403, 0.5134, 0.5920,  ..., 0.8411, 0.5311, 0.7043]),
+#  'masks': tensor(indices=tensor([[   0,    0,    0,  ..., 2179, 2179, 2179],
+#                         [  37,   37,   37,  ..., 2998, 2998, 2998],
+#                         [ 276,  277,  278,  ..., 1643, 1644, 1645]]),
+#         values=tensor([1, 1, 1,  ..., 1, 1, 1]),
+#         size=(2180, 3868, 1831), nnz=2654230, layout=torch.sparse_coo)}
+
+# copied function 'merged_pred_to_geojson':
+# and adapted (got rid of obj.)
+ulx, xres, _, uly, _, yres  = dataset.GetGeoTransform() # not needed: xskew, yskew
+
+# # NEW: check if this part of the feature lies in the current 'field of view' of the subimg
+# # code outline
+# # define outside the field of view of the subimg in pixels
+# # it is not crucial that this computation is perfect! rounding errors are no problem
+# xoffset = obj.apppos[0]
+# yoffset = obj.apppos[1]
+# if (xoffset + yoffset) != 0:
+#     # NOTE: I had to exchange xoffset with yoffset. ulx is longitude, uly is latitude. swapped in python array
+#     newulx = xidx_to_xcoord(yoffset, xres, ulx)
+#     newlrx = xidx_to_xcoord(yoffset + obj.psags.cut_size, xres, ulx)
+#     newuly = yidx_to_ycoord(xoffset, yres, uly)
+#     newlry = yidx_to_ycoord(xoffset + obj.psags.cut_size, yres, uly)
+
+# initialize features
+features = []
+
+# loop through mask layers
+for midx in range(20): # range(len(merged_pred['masks'])):
+    '''
+        for testing:
+        midx = 0
+        layerimg = np.array(memars[0].to_dense())
+    '''
+
+    layerimg = np.array(merged_pred['masks'][midx].to_dense())
+    # calculate azimuth now:
+    azimuth = fit_line_to_mask(merged_pred['masks'][midx]) # we append later to feature! this is only a first proxy, as the projection might not be suited for azimuth extraction!
+    # get polygon indices with cv2 function 'findContours'
+    # this automatically detects contours
+    contours, _ = cv2.findContours(layerimg.astype('uint8'), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # NOTE: this is the step that can take forever! simply due to the amount of masks!
+
+    # append to list
+    xarr = []
+    yarr = []
+    for idx in range(len(contours)):
+        print(idx)
+        # TODO: delete small 'fuzzy' predictions
+        # TEST well!
+        if len(contours[idx]) < 15:
+            continue
+
+        parrx = contours[idx][:,0][:,0] # the shape of contours[0] is (npoints, 1, 2). I take here simply all points with the first [:,0] indexing, and the first or second entries with the second [:,0].
+        parry = contours[idx][:,0][:,1]
+
+
+        canvas = np.zeros_like(layerimg, dtype=int)
+        cnt = contours[idx]
+        cv2.drawContours(canvas, [cnt], -1, (255, 255, 255), 1)
+        cropped = tight_image(torch.as_tensor(canvas[None,:,:]))
+        plt.imshow(cropped[0])
+        plt.title('length: {}'.format(len(contours[idx])))
+        plt.show()
+
+        # for closing the polygon, append the first pair again
+        # otherwise, I  need to fix geometries in QGIS, and can't import to ArcGIS
+        # CHECK THIS LINE, IT DOES NOT APPEND THE CORRECT THING
+        parrx = np.append(parrx, contours[idx][0,0][0])
+        parry = np.append(parry, contours[idx][0,0][1])
+
+        # # parrx to xarr
+        # if (xoffset + yoffset) != 0:
+        #     xarr.append(xidx_to_xcoord(parrx, xres, newulx))
+        #     yarr.append(yidx_to_ycoord(parry, yres, newuly))            
+        # else:
+        xarr.append(xidx_to_xcoord(parrx, xres, ulx))
+        yarr.append(yidx_to_ycoord(parry, yres, uly))
+
+    # to geojson Polygon feature
+    # bring to format:
+    # Polygon([[(2.38, 57.322), (23.194, -20.28), (-120.43, 19.15), (2.38, 57.322)]])
+    # (this exact format is necessary)
+    polyg = MultiPolygon([ [list(zip(xarre, yarre))] for xarre, yarre in zip(xarr, yarr)  ])
+
+    # add feature (and id)
+    # TODO: add correct id from layer name (first entry)
+    id = int(merged_pred['labels'][midx].item())
+    score = round(merged_pred['scores'][midx].item(), 2)  # we do want a float, not a string, rounded to two decimal places
+    feature = Feature() # , properties={'id': id}
+    feature['properties'] = {'id_int': id, 'score': score, 'comments': '', 'reviewed': 0, 'azimuth': azimuth.item()}
+    feature['geometry'] = polyg # NOTE: I always have to fix geometries... is there a way to overcome this? perhaps the polygon is not closed? i could solve this perhaps with this: https://gis.stackexchange.com/questions/263696/invalid-geometries-made-valid-dont-remain-valid 
+    features.append(feature)
+
+# add the coordinate reference system (I copied this from an exported geojson file from QGIS ('Qgis_all_usgs_mosaics.qgz'))
+feature_collection = FeatureCollection(features, crs={'type': 'name',
+'properties': {'name': dataset.GetProjection()}})
+
+# # save as geojson
+# # use date for saving to prevent writing errors
+# now = datetime.now()
+# dt_string = now.strftime("%Y_%m_%d_%H_%M_")
+# # dt_ymd = now.strftime("%Y_%m_%d")
+# save_json_path_dt = Path(obj.psags.savedir) / 'json_files'
+# # make an individual folder for each day (to prevent a huge chaos!)
+# os.makedirs(save_json_path_dt, exist_ok=True)
+# with open(save_json_path_dt.joinpath(dt_string + obj.geotiff_filename + '_' + str(obj.sidx) + '.geojson'), 'w') as f:
+#     dump(feature_collection, f)
+
+#%%
+
+import geojson
+# check geojson feature with 
+geojson.Feature(features[0]).is_valid
+# first feature has a problem {"geometry": {"coordinates": [[[[-1709120.0, 231516.0], [-1708902.0, 231516.0], [-1709120.0, 231516.0]]], [[[-1721546.0, 246558.0], [-1721764.0, 246340.0], [-1722418.0, 246340.0], [-1722418.0, 246122.0], [-1722636.0, 245904.0], [-1722636.0, 245250.0], [-1722418.0, 245032.0], [-1722418.0, 242198.0], [-1722636.0, 241980.0], [-1722636.0, 241544.0], [-1722418.0, 241326.0], [-1722418.0, 240890.0], [-1722200.0, 240890.0], [-1720892.0, 239582.0], [-1720892.0, 239146.0], [-1721110.0, 238928.0], [-1721328.0, 238928.0], [-1721546.0, 238710.0], [-1722200.0, 238710.0], [-1722636.0, 238274.0], [-1722854.0, 238274.0], [-1723072.0, 238056.0], [-1723508.0, 238056.0], [-1723726.0, 237838.0], [-1724162.0, 237838.0], [-1724598.0, 237402.0], [-1724816.0, 237402.0], [-1725034.0, 237184.0], [-1725252.0, 237184.0], [-1725470.0, 236966.0], [-1725688.0, 236966.0], [-1726124.0, 236530.0], [-1726342.0, 236530.0], [-1726560.0, 236312.0], [-1726996.0, 236312.0], [-1727214.0, 236094.0], [-1727650.0, 236094.0], [-1728304.0, 235440.0], [-1729394.0, 235440.0], [-1729830.0, 235004.0], [-1730048.0, 235004.0], [-1730266.0, 234786.0], [-1732228.0, 234786.0], [-1732446.0, 234568.0], [-1733318.0, 234568.0], [-1733536.0, 234350.0], [-1733754.0, 234350.0], [-1733972.0, 234132.0], [-1734190.0, 234132.0], [-1734408.0, 233914.0], [-1734408.0, 233696.0], [-1734626.0, 233478.0], [-1734626.0, 232824.0], [-1734844.0, 232606.0], [-1734844.0, 231298.0], [-1735280.0, 230862.0], [-1735280.0, 230426.0], [-1732228.0, 230426.0], [-1732228.0, 230644.0], [-1731792.0, 231080.0], [-1731574.0, 230862.0], [-1730920.0, 230862.0], [-1730702.0, 231080.0], [-1730484.0, 231080.0], [-1730266.0, 231298.0], [-1730048.0, 231298.0], [-1729830.0, 231516.0], [-1729612.0, 231298.0], [-1729612.0, 230208.0], [-1729394.0, 229990.0], [-1729176.0, 229990.0], [-1728958.0, 230208.0], [-1728740.0, 230208.0], [-1728522.0, 230426.0], [-1727432.0, 230426.0], [-1726778.0, 231080.0], [-1725906.0, 231080.0], [-1725688.0, 231298.0], [-1725252.0, 231298.0], [-1725034.0, 231516.0], [-1724816.0, 231516.0], [-1724598.0, 231734.0], [-1724380.0, 231734.0], [-1723944.0, 232170.0], [-1723726.0, 232170.0], [-1723508.0, 232388.0], [-1722854.0, 232388.0], [-1722636.0, 232170.0], [-1722636.0, 231952.0], [-1722418.0, 231734.0], [-1722418.0, 231080.0], [-1722200.0, 230862.0], [-1722200.0, 230426.0], [-1721110.0, 230426.0], [-1720892.0, 230208.0], [-1720892.0, 227810.0], [-1719802.0, 227810.0], [-1719584.0, 228028.0], [-1719148.0, 228028.0], [-1718930.0, 228246.0], [-1718494.0, 228246.0], [-1718276.0, 228464.0], [-1718930.0, 229118.0], [-1718930.0, 229772.0], [-1718276.0, 230426.0], [-1718058.0, 230426.0], [-1717404.0, 231080.0], [-1717186.0, 231080.0], [-1716968.0, 231298.0], [-1716968.0, 231516.0], [-1716096.0, 232388.0], [-1715878.0, 232388.0], [-1715442.0, 232824.0], [-1712826.0, 232824.0], [-1712608.0, 233042.0], [-1711736.0, 233042.0], [-1711518.0, 233260.0], [-1711300.0, 233260.0], [-1710210.0, 234350.0], [-1709992.0, 234350.0], [-1709338.0, 235004.0], [-1708902.0, 235004.0], [-1708684.0, 234786.0], [-1708466.0, 234786.0], [-1708248.0, 234568.0], [-1708030.0, 234568.0], [-1707812.0, 234350.0], [-1706940.0, 234350.0], [-1706722.0, 234568.0], [-1706504.0, 234568.0], [-1706504.0, 234786.0], [-1705632.0, 235658.0], [-1705196.0, 235658.0], [-1704978.0, 235876.0], [-1704106.0, 235876.0], [-1703888.0, 236094.0], [-1703452.0, 236094.0], [-1703234.0, 235876.0], [-1703016.0, 236094.0], [-1702798.0, 236094.0], [-1702580.0, 236312.0], [-1702580.0, 236966.0], [-1702798.0, 237184.0], [-1703016.0, 237184.0], [-1703234.0, 237402.0], [-1704106.0, 237402.0], [-1704324.0, 237620.0], [-1705632.0, 237620.0], [-1705850.0, 237838.0], [-1706940.0, 237838.0], [-1707158.0, 238056.0], [-1707594.0, 238056.0], [-1707812.0, 238274.0], [-1708466.0, 238274.0], [-1709120.0, 238928.0], [-1709120.0, 239146.0], [-1709338.0, 239364.0], [-1709338.0, 239582.0], [-1709556.0, 239582.0], [-1709774.0, 239800.0], [-1709774.0, 240018.0], [-1709992.0, 240236.0], [-1710210.0, 240236.0], [-1710428.0, 240018.0], [-1711300.0, 240018.0], [-1711518.0, 240236.0], [-1712172.0, 240236.0], [-1712390.0, 240454.0], [-1713698.0, 240454.0], [-1713916.0, 240236.0], [-1714134.0, 240236.0], [-1714352.0, 240454.0], [-1714570.0, 240236.0], [-1714788.0, 240454.0], [-1714788.0, 240672.0], [-1715006.0, 240890.0], [-1715006.0, 241544.0], [-1714788.0, 241762.0], [-1714788.0, 242634.0], [-1715006.0, 242852.0], [-1715006.0, 243288.0], [-1714788.0, 243506.0], [-1714788.0, 243942.0], [-1714134.0, 244596.0], [-1713916.0, 244596.0], [-1713698.0, 244814.0], [-1713044.0, 244814.0], [-1712826.0, 244596.0], [-1712390.0, 244596.0], [-1711954.0, 244160.0], [-1711954.0, 243942.0], [-1711736.0, 243724.0], [-1711736.0, 242634.0], [-1711954.0, 242416.0], [-1711954.0, 242198.0], [-1711736.0, 241980.0], [-1711518.0, 241980.0], [-1711300.0, 242198.0], [-1711082.0, 242198.0], [-1711082.0, 242416.0], [-1710864.0, 242634.0], [-1710864.0, 243070.0], [-1710428.0, 243506.0], [-1709992.0, 243506.0], [-1709774.0, 243724.0], [-1709556.0, 243724.0], [-1709120.0, 244160.0], [-1708902.0, 244160.0], [-1708902.0, 245686.0], [-1709338.0, 245686.0], [-1709556.0, 245468.0], [-1709556.0, 245032.0], [-1709338.0, 244814.0], [-1709774.0, 244378.0], [-1710210.0, 244378.0], [-1710646.0, 243942.0], [-1710646.0, 243506.0], [-1710864.0, 243288.0], [-1711082.0, 243288.0], [-1711518.0, 243724.0], [-1711518.0, 244160.0], [-1711300.0, 244378.0], [-1711300.0, 246340.0], [-1711518.0, 246340.0], [-1711736.0, 246558.0], [-1719366.0, 246558.0], [-1719584.0, 246340.0], [-1720892.0, 246340.0], [-1721110.0, 246558.0], [-1721546.0, 246558.0]]]], "type": "MultiPolygon"}, "properties": {"azimuth": 69.68778228759766, "comments": "", "id_int": 1, "reviewed": 0, "score": 0.64}, "type": "Feature"}
+# coordinates repeat already after in position  not -2. why is that?
+
+#%% then, see how to fix
+
+midx = 1
+layerimg = np.array(merged_pred['masks'][midx].to_dense())
+plt.imshow(layerimg[0:200,0:500])
+plt.show() # this mask looks super weird! like multiple layers! perhaps due to 'sum'?
+# calculate azimuth now:
+azimuth = fit_line_to_mask(merged_pred['masks'][midx]) # we append later to feature! this is only a first proxy, as the projection might not be suited for azimuth extraction!
+# get polygon indices with cv2 function 'findContours'
+# this automatically detects contours
+contours, _ = cv2.findContours(layerimg.astype('uint8'), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+# NOTE: this is the step that can take forever! simply due to the amount of masks!
+
+# append to list
+xarr = []
+yarr = []
+for idx in range(len(contours)):
+    # TODO: delete small 'fuzzy' predictions
+    # TEST well!
+    if len(contours[idx]) == 2:
+        continue
+
+    parrx = contours[idx][:,0][:,0] # the shape of contours[0] is (npoints, 1, 2). I take here simply all points with the first [:,0] indexing, and the first or second entries with the second [:,0].
+    parry = contours[idx][:,0][:,1]
+
+    canvas = np.zeros_like(layerimg, dtype=int)
+    cnt = contours[idx]
+    cv2.drawContours(canvas, [cnt], -1, (255, 255, 255), 1)
+    cropped = tight_image(torch.as_tensor(canvas[None,:,:]))
+    plt.imshow(cropped[0])
+    plt.title('length: {}'.format(len(contours[idx])))
+
+    # for closing the polygon, append the first pair again
+    # otherwise, I  need to fix geometries in QGIS, and can't import to ArcGIS
+    # CHECK THIS LINE, IT DOES NOT APPEND THE CORRECT THING
+    parrx = np.append(parrx, contours[idx][0,0][0])
+    parry = np.append(parry, contours[idx][0,0][1])
+
+    # # parrx to xarr
+    # if (xoffset + yoffset) != 0:
+    #     xarr.append(xidx_to_xcoord(parrx, xres, newulx))
+    #     yarr.append(yidx_to_ycoord(parry, yres, newuly))            
+    # else:
+    xarr.append(xidx_to_xcoord(parrx, xres, ulx))
+    yarr.append(yidx_to_ycoord(parry, yres, uly))
+
+# to geojson Polygon feature
+# bring to format:
+# Polygon([[(2.38, 57.322), (23.194, -20.28), (-120.43, 19.15), (2.38, 57.322)]])
+# (this exact format is necessary)
+polyg = MultiPolygon([ [list(zip(xarre, yarre))] for xarre, yarre in zip(xarr, yarr)  ])
+
+# add feature (and id)
+# TODO: add correct id from layer name (first entry)
+id = int(merged_pred['labels'][midx].item())
+score = round(merged_pred['scores'][midx].item(), 2)  # we do want a float, not a string, rounded to two decimal places
+feature = Feature() # , properties={'id': id}
+feature['properties'] = {'id_int': id, 'score': score, 'comments': '', 'reviewed': 0, 'azimuth': azimuth.item()}
+feature['geometry'] = polyg # NOTE: I always have to fix geometries... is there a way to overcome this? perhaps the polygon is not closed? i could solve this perhaps with this: https://gis.stackexchange.com/questions/263696/invalid-geometries-made-valid-dont-remain-valid 
+features.append(feature)
 
 
 
+# %%
+# and comparison to Mask r-cnn:
+# simply load pickle file!
+# for same dataset
+# ach, I don't have the same dataset!
+# anyway, just load one pickle file
 
 
+pkl_file = "2024_02_28_17_06_C0349875126R_0.pickle"
+pkl_path = titaniach / "lineament_detection/RegionalMaps_CH_NT_EJL_LP/mapping/output/LineaMapper_output/2024_02_28_Feb/pickle_files"
 
+with open(pkl_path.joinpath(pkl_file), 'rb') as f:
+    merged_pred_rcnn = pickle.load(f)
+
+midx = 1
+layerimg_rcnn = np.array(merged_pred_rcnn['masks'][midx].to_dense())
+plt.imshow(layerimg_rcnn)
+plt.show() # no, multiple layers are normal from merging
+
+plt.imshow(layerimg_rcnn[0:400, 450:1000]) # this looks weird as well, but a little less weird
 
 # %%

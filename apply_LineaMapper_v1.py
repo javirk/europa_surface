@@ -38,7 +38,7 @@ full_time_start = time.time()
 for tifffile in tifpaths:
     tf = tifffile.stem
     print(tf)
-    command = 'python LineaMapper_v2_to_img.py --geofile=' + str(source_path.joinpath(tf + '.tif')) + ' --savedir=' + str(savepath) + ' --class_scores 0.5 0.5 0.5 0.5 --cut_size=3000 --multiplication_factor=25 --azimuth_diff_range=25 --del_pxs=100 --geosize=112' 
+    command = 'python LineaMapper_v1_to_img.py --geofile=' + str(source_path.joinpath(tf + '.tif')) + ' --savedir=' + str(savepath) + ' --class_scores 0.5 0.5 0.5 0.5 --cut_size=3000 --multiplication_factor=25 --azimuth_diff_range=25 --del_pxs=100 --geosize=112' 
     print(command)
     os.system(command)
 

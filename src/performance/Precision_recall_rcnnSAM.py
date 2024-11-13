@@ -32,6 +32,23 @@ from matplotlib.colors import ListedColormap, BoundaryNorm
 from detection.coco_eval import CocoEvaluator
 from detection.coco_utils import get_coco_api_from_dataset
 
+def calc_diff(new, old, fac=1):
+    '''
+    simply calculate the difference
+    '''
+    return (new-old) * fac
+
+def get_sign(y):
+    '''
+    simply returns a + for positive values
+    
+    We return an empty string for negative values (since the minus is already placed with the negative number)
+    '''
+
+    if y > 0:
+        return '+'
+    else:
+        return ''
 
 
 def hdf_to_output(hdfpaths_orig, dataloader_val):
@@ -134,10 +151,21 @@ rec_thrs = np.array([0., 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0
                      0.99, 1.])
 
 
-def main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, rcnnsam_args, subset='test'):
+def main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, rcnnsam_args, subset='test', GR=False):
+    '''
+    to debug:
+    datafolder = datafolders[0]
+    shift5to4 = False
+    GR = True
+    '''
     if isinstance(hdfdatafolder, str):
         hdfdatafolder = Path(hdfdatafolder)
+
+
     for datafolder, shift5to4 in zip(datafolders, shiftbools):
+        # make save folder
+        save_makedirs = root / save_path / datafolder / rcnnsam_args['savename_subset']
+        
         # automatically look inside this hard-coded folder for the datafolder subfolder
         mygalipath = data_root / datafolder
         # TEST SET
@@ -150,8 +178,8 @@ def main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, rcn
 
         # get class_dict
         class_dict = dataset.load_class_dict()
-        cat_dict = {v: k for k, v in dataset.load_class_dict().items()}
-        num_classes = len(class_dict) + 1
+        # cat_dict = {v: k for k, v in dataset.load_class_dict().items()}
+        # num_classes = len(class_dict) + 1
 
         ##### create cocogt and cocomodel
         # from 'engine.py'
@@ -160,7 +188,10 @@ def main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, rcn
         coco = get_coco_api_from_dataset(dataloader.dataset)  # this returns an object <pycocotools.coco.COCO>
         coco_evaluator = CocoEvaluator(coco, iou_types)
 
-        mask_generator, box_generator = get_rcnnSAM(rcnnsam_args)
+        if 'bbox' in str(rcnnsam_args['ckpt_path']):
+            mask_generator, box_generator = get_rcnnSAM(rcnnsam_args)
+        elif 'instseg' in str(rcnnsam_args['ckpt_path']):
+            mask_generator = get_samPoints(rcnnsam_args)
 
         # from engine.py
         for imt_idx, (images, targets) in enumerate(dataloader):
@@ -170,9 +201,23 @@ def main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, rcn
             if torch.cuda.is_available():
                 torch.cuda.synchronize()
             # get model predictions
-            # batch process:
-            outputs = batch_process_rcnnsam(mask_generator, box_generator, images)
+            if 'bbox' in str(rcnnsam_args['ckpt_path']):
+                if GR: # prompt with ground truth
+                    outputs = []
+                    for image, target in zip(images, targets):
+                        result = get_boxsam_output(mask_generator, target['boxes'], target['labels'], image.to(device), rcnnsam_args, cpu_output=True)
+                        outputs.append(result)                    
+                else:
+                    # batch process:
+                    # use RCNN box prompoting:
+                    outputs = batch_process_rcnnsam(mask_generator, box_generator, images, cpu_output=True)
 
+            elif 'instseg' in str(rcnnsam_args['ckpt_path']):
+                # use Point prompting:
+                outputs = []
+                for image in images:
+                    result_prompt = prompt_SamPoints(mask_generator, image, rcnnsam_args, cpu_output=True)
+                    outputs.append(result_prompt)
             # outputs = model_output[imt_idx * batch_size: imt_idx * batch_size + len(images)]
             # for target, output in zip(targets, outputs):
             #     print(target['path'].stem)
@@ -184,7 +229,11 @@ def main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, rcn
 
             res = {target["image_id"].item(): output for target, output in zip(targets, outputs)}
             evaluator_time = time.time()
-            coco_evaluator.update(res)
+            try:
+                coco_evaluator.update(res)
+            except IndexError:
+                print(res)
+                break
 
         # now we can evaluate 
         coco_evaluator.synchronize_between_processes()  # I don't know what this does, but it is crucial
@@ -257,6 +306,15 @@ def main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, rcn
             scores = scores[t_ind, :, :, a_ind, m_ind]  # now the shape is (101, 5)
             recall = recall[t_ind, :, a_ind, m_ind]  # has shape (5,), average recall at IoU=0.5 
 
+            # sometimes, there is an empty category, in which case we delete the first
+            # this is easily identifiable by a precision of 0.0 for the first index:
+            # this is not bulletproof (does not work for ground truth), so we also check the shape directly.
+            if (np.count_nonzero(precision[:, 0]) == 0) or (precision.shape[1] == 5):
+                precision = precision[:, 1:]
+                scores = scores[:, 1:]
+                recall = recall[1:]
+
+
             fig, axs = plt.subplots(1, 1, figsize=(7, 5))
             # segs = [np.column_stack([rec_thrs, precision[:,cati]]) for cati in range(4)]
 
@@ -275,7 +333,8 @@ def main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, rcn
             itd = {'bbox': 'bounding boxes', 'segm': 'masks'}
             # Category Dictionary
             cd = {'0': 'bands', '1': 'double ridges', '2': 'ridge complexes', '3': 'undiff. lineae'}
-            for cat_idx in range(4):  # changed back to 4. this was a mistake before implementation of shift5to4
+            for cat_idx in range(precision.shape[1]):  # should now be equal to range(4) 
+                
                 points = np.array([rec_thrs, precision[:, cat_idx]]).T.reshape(-1, 1, 2)
                 segments = np.concatenate([points[:-1], points[1:]], axis=1)
                 # prcurv = axs.plot(rec_thrs, precision[:,cat_idx], label=cd[str(cat_idx)])
@@ -318,10 +377,11 @@ def main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, rcn
             axs.set_yticks(np.arange(0, 1.1, 0.1))
             axs.set_ylim(0, 1.05)
             axs.legend(custom_lines, list(cd.values()) + [r'score $\leq$ 0.5'])
-            fig_path = (root / save_path).joinpath(
-                f'rcnnSAM_precision-recall_curve_T{t_ind}_A{a_ind}_M{m_ind}_for_{itd[ioutype]}_{subset}_{datafolder}.pdf'
+            os.makedirs(save_makedirs, exist_ok=True)
+            fig_path = save_makedirs.joinpath(
+                f'rcnnSAM_prec-rec_curve_T{t_ind}_A{a_ind}_M{m_ind}_for_{ioutype}.png'
             )
-            fig.savefig(fig_path)
+            fig.savefig(fig_path, dpi=300, bbox_inches='tight')
             fig.show()
 
         # precision and recall at score of 0.5 and IoU threshhold of 0.5
@@ -335,24 +395,26 @@ def main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, rcn
         # add indices
         df.index = ['bands', 'double ridges', 'ridge complexes', 'undiff. lineae', 'average']
         # save as csv
-        csv_path = (root / save_path).joinpath(
-            f'rcnnSAM_precision_recall_at_score0.5_IoU0.5__T{t_ind}_A{a_ind}_M{m_ind}_{subset}_{datafolder}.csv'
+        os.makedirs(save_makedirs, exist_ok=True)
+        csv_path = save_makedirs.joinpath(
+            f'rcnnSAM_prec_rec_score0.5_IoU0.5__T{t_ind}_A{a_ind}_M{m_ind}.csv'
         )
         df.to_csv(csv_path)
 
 
-def get_caroline_config():
+def get_caroline_config(savepath):
     current = os.getcwd()
     root = Path(current.split('Caroline')[0]) / 'Caroline'
 
     datafolders = [
-        # "2024_02_14_11_22_Regiomaps_112x112", # best comparison for rcnnSAM
-        "2023_10_16_15_34_Regiomaps_224x224",  # correct comparison for SAM
-        "val_and_train_pytorch_224x224_LINEAMAPPER_v1.0",  # old test set, 224x224
-        # "val_and_train_pytorch_112x112_LINEAMAPPER_v1.0", # old test set, re-tiled to 112x112
+        # "2024_02_14_11_22_Regiomaps_112x112", #
+        # "2023_10_16_15_34_Regiomaps_224x224",  # not correct anymore: correct comparison for SAM
+        "2024_06_04_11_05_Regiomaps_112x112_rcnnSAM", # new 112x112 data, including 'empty' training tiles.
+        # "val_and_train_pytorch_224x224_LINEAMAPPER_v1.0",  # old test set, 224x224
+        "val_and_train_pytorch_112x112_LINEAMAPPER_v1.0", # old test set, re-tiled to 112x112
     ]
     shiftbools = [False, True] # false for regiomaps v1.1 (new dataset), true vor v1.0 (old dataset)
-    save_path = 'lineament_detection/RegionalMaps_CH_NT_EJL_LP/mapping/output/precision_recall/SAM_v1'
+    save_path = savepath
     #  load model and data
     data_root = root / 'lineament_detection/RegionalMaps_CH_NT_EJL_LP/mapping/data/tiles'
     europa_root = root / 'lineament_detection/Reinforcement_Learning_SAM/europa_surface'
@@ -380,36 +442,126 @@ def get_javier_config(hdfdatafolder):
 #%%
 if __name__ == '__main__':
     user = 'caroline'
-    img_size = 224 # or 112, if you change datafolders
+    img_size = 112 # or 112, if you change datafolders
 
     if user == 'javier':
         hdf_folder = './results/Galileo/Galileo_20240531-102944'
         root, data_root, datafolders, hdfdatafolder, save_path, subset, shiftbools = get_javier_config(hdf_folder)
     elif user == 'caroline':
-        root, data_root, europa_root, datafolders, hdfdatafolder, save_path, subset, shiftbools = get_caroline_config()
+        savepat = 'lineament_detection/RegionalMaps_CH_NT_EJL_LP/mapping/output/precision_recall/SAM_v2/tests'
+        root, data_root, europa_root, datafolders, hdfdatafolder, save_path, subset, shiftbools = get_caroline_config(savepat)
     else:
         raise NotImplementedError
 
     # import modules from folder above: is there a better way?
     import sys
     sys.path.append((europa_root).as_posix())
-    from LineaMapper_v2_to_img import get_sam_model, load_LineaMapper, get_rcnnsam_output, get_rcnnSAM, batch_process_rcnnsam
+    from LineaMapper_v2_to_img import get_rcnnSAM, batch_process_rcnnsam, get_samPoints, prompt_SamPoints, get_boxsam_output
 
     ckpts_path = europa_root / 'ckpts'
+    # get folders in this directory, and then files:
+    all_models_paths = sorted((ckpts_path / 'OneDriveModels_1_10-06-2024').glob('*/*.pt'))
+
+    sammodus_dict = {'vitt': 'vit_t', 'vitb': 'vit_b'}
+    # tests:
+    for modpath in all_models_paths:
+        rcnnsam_args = {
+                'num_classes': 5,
+                'img_size': img_size, # 112 or 224 ?
+                'ckpt_path': modpath,
+                'model_name': ckpts_path.joinpath("Mask_R-CNN_v1_1_17ESREGMAP02_part01_run10_end_model.pt"),
+                'minsize': 200,
+                'maxsize': 300, 
+                'device': torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu'),
+                'savename_subset': '{}_{}'.format(modpath.parents[0].stem, modpath.stem), # e.g. intseg_bb1
+                'sam_modus': sammodus_dict[modpath.parents[0].stem.split('_')[1]],
+            }
+
+        os.makedirs(root / save_path, exist_ok=True)
+
+        # train on the GPU or on the CPU, if a GPU is not available
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, rcnnsam_args, subset=subset)
+
+    ################
+    # after selection of 'best' model
+    # "./ckpts/bbox_vit_b_final.pt"
     rcnnsam_args = {
             'num_classes': 5,
             'img_size': img_size, # 112 or 224 ?
-            'ckpt_path': ckpts_path.joinpath('instseg_bb.pt'),
-            'model_name': ckpts_path.joinpath("Mask_R-CNN_v1_1_17ESREGMAP02_part01_run08_end_model.pt"),
+            'ckpt_path': ckpts_path.joinpath("bbox_vit_b_final.pt"),
+            'model_name': ckpts_path.joinpath("Mask_R-CNN_v1_1_17ESREGMAP02_part01_run10_end_model.pt"),
             'minsize': 200,
             'maxsize': 300, 
             'device': torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu'),
+            'savename_subset': 'bbox_vitb', # e.g. intseg_bb1
+            'sam_modus': 'vit_b',
         }
-
+    save_path = 'lineament_detection/RegionalMaps_CH_NT_EJL_LP/mapping/output/precision_recall/SAM_v2'
     os.makedirs(root / save_path, exist_ok=True)
 
-    # train on the GPU or on the CPU, if a GPU is not available
+    # use GPU or CPU, if a GPU is not available
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, rcnnsam_args, subset=subset)
+
+    ################
+    # prompt with Ground Truth
+    # after selection of 'best' model
+    # "./ckpts/bbox_vit_b_final.pt"
+    rcnnsam_args = {
+            'num_classes': 5,
+            'img_size': img_size, # 112 or 224 ?
+            'ckpt_path': ckpts_path.joinpath("bbox_vit_b_final.pt"),
+            'model_name': ckpts_path.joinpath("Mask_R-CNN_v1_1_17ESREGMAP02_part01_run10_end_model.pt"),
+            'minsize': 200,
+            'maxsize': 300, 
+            'device': torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu'),
+            'savename_subset': 'bbox_vitb', # e.g. intseg_bb1
+            'sam_modus': 'vit_b',
+        }
+    save_path = 'lineament_detection/RegionalMaps_CH_NT_EJL_LP/mapping/output/precision_recall/SAM_v2/GR'
+    os.makedirs(root / save_path, exist_ok=True)
+
+    # use GPU or CPU, if a GPU is not available
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, rcnnsam_args, subset=subset, GR=True)
+
+# %%
+#%% compare to 'old' 100% file
+
+# v 1.0 for comparison
+hundert_path = root / 'lineament_detection/RegionalMaps_CH_NT_EJL_LP/mapping/output/precision_recall' / 'pub1_run23' # 'v1_0_forcomparison', from published results
+hundert = pd.read_csv(hundert_path.joinpath('precision_recall_at_score0.5_IoU0.5__T1_A0_M2_.csv')) # 'precision_recall_at_score0.5_IoU0.5.csv'
+
+
+dfs = []
+# v2.0
+dfs.append(pd.read_csv((root / 'lineament_detection/RegionalMaps_CH_NT_EJL_LP/mapping/output/precision_recall/SAM_v2/bbox_vitb').joinpath('rcnnSAM_prec_rec_score0.5_IoU0.5__T1_A0_M2.csv')))
+# and ground truth:
+dfs.append(pd.read_csv((root/ 'lineament_detection/RegionalMaps_CH_NT_EJL_LP/mapping/output/precision_recall/SAM_v2/GR/2024_06_04_11_05_Regiomaps_112x112_rcnnSAM/bbox_vitb').joinpath('rcnnSAM_prec_rec_score0.5_IoU0.5__T1_A0_M2.csv')))
+
+names = ['v2.0', 'GR']
+
+for name, df in zip(names, dfs):
+    #example: calc_delta(33, 18, fac=100) gives 83.33333
+    df_withdiff = df.copy()
+    # df_withdiff = pd.DataFrame(columns=['bbox_precision', 'bbox_recall', 'masks_precision', 'masks_recall'])
+    # df_withdiff.index = ['bands', 'double ridges', 'ridge complexes', 'undiff. lineae', 'average']
+
+    for colname in df.columns:
+        # skip for 'Unnamed: 0'
+        if colname == 'Unnamed: 0':
+            continue
+        new = np.array(df[colname])
+        old = np.array(hundert[colname])
+
+        # df_withdiff.loc[:,colname] =  df.loc[:,colname].applymap(lambda x: "{:.1f}^{{{}}}".format(x, calc_diff(x, x, fac=100)))
+
+        df_withdiff[colname] =  ["{:.1f} ^{{{}{:.1f}}}".format(x*100, get_sign(y), y) for (x, y) in zip(new, calc_diff(new, old, fac=100))]
+
+    # tidy up colnames:
+    df_withdiff.columns = ['category', 'Box Precision', 'Box Recall', 'Mask Precision', 'Mask Recall']
+    # save
+    df_withdiff.to_csv((root / 'lineament_detection/RegionalMaps_CH_NT_EJL_LP/mapping/output/precision_recall/SAM_v2/').joinpath(f'{name}_precision_recall_for_overleaf_compared.csv'))
 
 # %%
