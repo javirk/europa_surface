@@ -6,7 +6,7 @@
 Steps:
 - Download the jupyter notebook called *LineaMapper_v2_bbox_prompt.ipynb*a s well as the test image *TO BE NAMED.png* to one folder on your local machine.
 - Download the model weights from zenodo *LINK TO BE INSERTED*
-- Store the model weights in the same folder than the jupyter notebook.
+- Store the model weights in the same folder as the jupyter notebook.
 - Either activate your local python environment (conda, pip) or generate a new one with the *requirements.txt* files (TO BE UPLOADED and STEP-BY-STEP GUIDE ADDED)
 - Test first to run the jupyter notebook as it is.
 - If you can successfully draw multiple bounding boxes inside the image, you can now try with an image of your liking by changing the variable *IMAGE_PATH*. Note that the image should not be greater than 200x200 pixels for a flawless prediction.
