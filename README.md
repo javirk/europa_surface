@@ -1,3 +1,4 @@
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/javirk/europa_surface/master?labpath=DEMO_bbox_prompt.ipynb)
 
 #### Code used for publication XX (subm. to PSJ)
 
