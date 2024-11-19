@@ -2,7 +2,7 @@
 # Caroline Haslebacher
 # with this script, you can analyse SAM trained on galileo data by Javier Gamazo Tejero
 
-
+#%%
 import h5py
 import pandas as pd
 import torch
@@ -445,3 +445,5 @@ if __name__ == '__main__':
     hdfdatafolder = Path('Z:\Groups\PIG\Caroline\lineament_detection\Reinforcement_Learning_SAM/test_SAMv1')
 
     main(config, datafolders, hdfdatafolder)
+
+#%%

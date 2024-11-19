@@ -13,6 +13,25 @@ def none_collate(batch):
     batch = [{key: value for key, value in b.items() if value is not None} for b in batch]
     return torch.utils.data.dataloader.default_collate(batch)
 
+class ListCollate:
+    def __init__(self, fields_list):
+        self.fields_list = fields_list
+
+    def __call__(self, batch):
+        batch = list(filter(lambda x: x is not None, batch))
+        batch = [{key: value for key, value in b.items() if value is not None} for b in batch]
+        return_dict = {}
+        for key in self.fields_list:
+            # These are returned as lists
+            return_dict[key] = [b[key] for b in batch]
+            # Now they are removed from the batch
+            for b in batch:
+                del b[key]
+
+        # Collate the other ones as usual
+        return_dict.update(torch.utils.data.dataloader.default_collate(batch))
+
+        return return_dict
 
 def custom_collate(batch):
     tensors, masks, dictionaries = zip(*batch)

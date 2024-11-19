@@ -34,7 +34,7 @@ def train(args, initial_epoch=0, wandb_step=0, fold_number=0):
     loss_fn = get_loss_fn(args)
     optimizer, scheduler = build_optimizer_scheduler(args, model, num_batches)
 
-    evaluate(model, args, args.eval_datasets, {'epoch': initial_epoch, 'step': 0}, prompting_eval=['none'])
+    evaluate(model, args, args.eval_datasets, {'epoch': initial_epoch, 'step': 0}, split='test', prompting_eval=['none'])
 
     for epoch in range(args.epochs):
         point_prob = 0.5 + (0.5 * epoch / args.epochs)
@@ -73,7 +73,7 @@ def train(args, initial_epoch=0, wandb_step=0, fold_number=0):
             losses = {}
             for name, (w, fn) in loss_fn.items():
                 if 'iou' in name.lower():
-                    loss_item = fn(output, low_res_target)
+                    loss_item = fn(output, target)
                 else:
                     loss_item = fn(output['masks'], target)
                 losses[f'train/{name}'] = loss_item.item()
@@ -91,7 +91,7 @@ def train(args, initial_epoch=0, wandb_step=0, fold_number=0):
         if args.wandb:
             wandb.log({'train/loss': loss_sum / num_batches}, step=wandb_step)
 
-        evaluate(model, args, args.eval_datasets, {'epoch': epoch, 'step': wandb_step}, split='val',
+        evaluate(model, args, args.eval_datasets, {'epoch': epoch, 'step': wandb_step}, split='test',
                  prompting_eval=['none'])
         evaluate(model, args, args.eval_datasets, {'epoch': epoch, 'step': wandb_step}, split='train',
                  prompting_eval=['none'])

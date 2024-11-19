@@ -53,6 +53,7 @@ def get_datasets(args, transformations=None, shuffle_training=True):
         transformations=transformations,
         shuffle_training=shuffle_training,
         fold_number=args.fold_number,
+        dataset_type=args.dataset_type,
         kwargs=args
     )
     if args.training_split == 'val':

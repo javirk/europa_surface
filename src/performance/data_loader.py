@@ -35,7 +35,7 @@ import tempfile
 # data loader
 
 class Lineament_dataloader(Dataset):
-    def __init__(self, dataset_path, transform=None, bbox_threshold=100):
+    def __init__(self, dataset_path, transform=None, bbox_threshold=100, shift5to4=False):
         super(Lineament_dataloader, self).__init__()
 
         # load class dictionary, e.g. {"band": 1, "double_ridge": 2, "ridge_complex": 3, "cusp": 4, "undifferentiated_linea": 5}
@@ -64,6 +64,7 @@ class Lineament_dataloader(Dataset):
             self.transform = None
 
         self.bbox_threshold = bbox_threshold
+        self.shift5to4 = shift5to4
 
         # get list of image paths
         self.imgs = sorted(Path(dataset_path).glob(f"*.npy")) # sorted(dataset_dir.glob(f"**/*.{fileid}"))
@@ -110,12 +111,41 @@ class Lineament_dataloader(Dataset):
             mask_ids = []
 
             # print(mask_path)
+            if self.shift5to4 == True:
+                # get rid of cusps
+                # filter geoms['features']
+                geomsfetsls = []
+                for fetsr in geoms['features']:
+                    catstr = int(fetsr['properties']['id_int'])
+                    if catstr != 4:
+                        # then we can append!
+                        geomsfetsls.append(fetsr)
+            else:
+                geomsfetsls = geoms['features']
 
             # loop through geoms['features'] and make mask out of .geojson
-            for i, feature in enumerate(geoms['features']):
+            for i, feature in enumerate(geomsfetsls):
                 # get the class
                 catstr = int(feature['properties']['id_int'])
+                if self.shift5to4 == True:
+                    # print(catstr)
+                    if catstr==4: # get rid of cusps
+                        catstr = 6
+                    # # print(catstr)
+                    if catstr==5: # transform 5-> 4, otherwise we get cuda error
+                        # print('5 to 4')
+                        catstr = 4 # cast unidff lineae to category 4
 
+                    # check first if the data category is really defined in our class dict
+                    # if this is not the case, skip this feature
+                    if catstr not in self.label_dict.values():
+                        print('I will skip {}'.format(catstr))
+                        # achtung achtung!!! delete masks!
+                        # make new array, copy and make masks.shape[2]-1
+                        # masks_temp = np.zeros([height, width, masks.shape[2]-1], dtype=np.uint8)
+                        # masks_temp[:,:,]
+
+                        continue
                 # sometimes, a feature consists of multiple polygons!
                 # therefore, we loop over these
                 for fts_idx in range(len(feature['geometry']['coordinates'])):
