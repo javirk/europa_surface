@@ -3,7 +3,7 @@
 #### Code used for publication XX (subm. to PSJ)
 
 ## Demo: test the interactive LineaMapper v2.0
- **Try it directly online: [live demo on Binder](https://mybinder.org/v2/gh/javirk/europa_surface/master?labpath=DEMO_bbox_prompt.ipynb)**.
+ **Try it directly online: [Demo on Binder](https://mybinder.org/v2/gh/javirk/europa_surface/master?labpath=DEMO_bbox_prompt.ipynb)** (takes a few minutes to start up).
 
 Steps:
 - Download the jupyter notebook called *LineaMapper_v2_bbox_prompt.ipynb*a s well as the test image *TO BE NAMED.png* to one folder on your local machine.
