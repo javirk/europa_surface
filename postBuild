@@ -1,2 +1,4 @@
-pip install -e .
-RUN apt-get update && apt-get install libgl1
+#!/bin/bash
+
+# Install libgl1 (with automatic confirmation)
+sudo apt-get update && apt-get install -y libgl1
