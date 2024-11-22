@@ -21,4 +21,6 @@ Instead of executing the jupyter notebook on your local machine, you can also us
 
 If you would like to use the stitching tool, ...
 
+Private note: The requirements.txt come from venv 'vgeosam312'.
+
 
