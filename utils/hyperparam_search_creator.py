@@ -13,8 +13,8 @@ def main(folder, base_file):
 
     config = {
         'lr': np.linspace(0.001, 5e-5, 5),
-        'loss-weights': ["1.,20.,1."],
-        'loss-fn': ['DiceLoss,FocalLoss,IoUHeadLoss'],
+        'loss-weights': ["1.,20.,1.", "1.,100.,1.", "1.,1.,1.", "1.,2.,1."],
+        'loss-fn': ['DiceLoss,FocalLoss,IoUHeadLoss', 'DiceLoss,CrossEntropyLoss,IoUHeadLoss'],
         'batch-size': [8, 16, 24, 32, 64, 128]
     }
 

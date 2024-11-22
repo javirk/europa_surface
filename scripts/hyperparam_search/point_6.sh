@@ -6,6 +6,7 @@
 #SBATCH --mail-user=javier.gamazo-tejero@unibe.ch
 # Mail on NONE, BEGIN, END, FAIL, REQUEUE, ALL
 #SBATCH --mail-type=FAIL,END
+#SBATCH --account=ws_00000
 
 # Job name
 #SBATCH --job-name="gal_sam_iterations"
@@ -37,8 +38,8 @@
 ##SBATCH --array=0-11%8
 
 # Main Python code below this line
-PYTHONPATH="./" python main.py --batch-size=8 --lr=0.0007625 --wd=0.01 --epochs=50 --workers 8 \
-  --data-location=/storage/workspaces/artorg_aimi/ws_00000/javier/datasets/europa/ \
-  --eval-datasets=GalileoDataset --train-dataset=Galileo --loss-fn=DiceLoss,FocalLoss,IoUHeadLoss --loss-weights=1.,20.,1. \
-  --wandb --exp-name=Galileo --save=./results/ --pretrained-model=./segment_anything/checkpoints/mobile_sam.pt \
-  --dataset-type=new_112 --training-split=train --model=vit_t
+PYTHONPATH="./" python main.py --batch-size=8 --lr=0.001 --wd=0.01 --epochs=50 --workers 8 \
+  --data-location=/storage/workspaces/artorg_aimi/ws_00000/javier/datasets/europa/dataset_224x224/ \
+  --eval-datasets=GalileoDataset --train-dataset=Galileo --loss-fn=DiceLoss,CrossEntropyLoss,IoUHeadLoss --loss-weights=1.,20.,1. \
+  --wandb --exp-name=Galileo --pretrained-model=./ckpts/semseg.pt \
+  --task training_iterative

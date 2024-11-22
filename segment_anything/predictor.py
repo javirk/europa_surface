@@ -9,15 +9,15 @@ import torch
 
 from segment_anything.modeling import Sam
 
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple
 
 from .utils.transforms import ResizeLongestSide
 
 
 class SamPredictor:
     def __init__(
-            self,
-            sam_model: Sam,
+        self,
+        sam_model: Sam,
     ) -> None:
         """
         Uses SAM to calculate the image embedding for an image, and then
@@ -32,9 +32,9 @@ class SamPredictor:
         self.reset_image()
 
     def set_image(
-            self,
-            image: np.ndarray,
-            image_format: str = "RGB",
+        self,
+        image: np.ndarray,
+        image_format: str = "RGB",
     ) -> None:
         """
         Calculates the image embeddings for the provided image, allowing
@@ -59,26 +59,11 @@ class SamPredictor:
 
         self.set_torch_image(input_image_torch, image.shape[:2])
 
-    def set_images_batch(
-            self,
-            images: torch.Tensor,
-            image_format: str = "RGB"
-    ):
-        assert image_format in [
-            "RGB",
-            "BGR",
-        ], f"image_format must be in ['RGB', 'BGR'], is {image_format}."
-        if image_format != self.model.image_format:
-            image = images[:, ::-1]
-
-        # input_images = self.transform.apply_image(images)
-        self.set_torch_image(images, images.shape[-2:])
-
     @torch.no_grad()
     def set_torch_image(
-            self,
-            transformed_image: torch.Tensor,
-            original_image_size: Tuple[int, ...],
+        self,
+        transformed_image: torch.Tensor,
+        original_image_size: Tuple[int, ...],
     ) -> None:
         """
         Calculates the image embeddings for the provided image, allowing
@@ -92,9 +77,9 @@ class SamPredictor:
             before transformation, in (H, W) format.
         """
         assert (
-                len(transformed_image.shape) == 4
-                and transformed_image.shape[1] == 3
-                and max(*transformed_image.shape[2:]) == self.model.image_encoder.img_size
+            len(transformed_image.shape) == 4
+            and transformed_image.shape[1] == 3
+            and max(*transformed_image.shape[2:]) == self.model.image_encoder.img_size
         ), f"set_torch_image input must be BCHW with long side {self.model.image_encoder.img_size}."
         self.reset_image()
 
@@ -105,13 +90,13 @@ class SamPredictor:
         self.is_image_set = True
 
     def predict(
-            self,
-            point_coords: Optional[np.ndarray] = None,
-            point_labels: Optional[np.ndarray] = None,
-            box: Optional[np.ndarray] = None,
-            mask_input: Optional[np.ndarray] = None,
-            multimask_output: bool = True,
-            return_logits: bool = False,
+        self,
+        point_coords: Optional[np.ndarray] = None,
+        point_labels: Optional[np.ndarray] = None,
+        box: Optional[np.ndarray] = None,
+        mask_input: Optional[np.ndarray] = None,
+        multimask_output: bool = True,
+        return_logits: bool = False,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Predict masks for the given input prompts, using the currently set image.
@@ -152,7 +137,7 @@ class SamPredictor:
         coords_torch, labels_torch, box_torch, mask_input_torch = None, None, None, None
         if point_coords is not None:
             assert (
-                    point_labels is not None
+                point_labels is not None
             ), "point_labels must be supplied if point_coords is supplied."
             point_coords = self.transform.apply_coords(point_coords, self.original_size)
             coords_torch = torch.as_tensor(point_coords, dtype=torch.float, device=self.device)
@@ -181,56 +166,14 @@ class SamPredictor:
         return masks_np, iou_predictions_np, low_res_masks_np
 
     @torch.no_grad()
-    def predict_torch_batch(
-            self,
-            point_coords: Optional[List] = None,
-            point_labels: Optional[List] = None,
-            boxes: Optional[List] = None,
-            mask_input: Optional[torch.Tensor] = None,
-            multimask_output: bool = True,
-            return_logits: bool = False,
-    ) -> Tuple[List, List, List]:
-        bs = self.features.shape[0]
-
-        if point_coords is None:
-            point_coords = [None] * bs
-            point_labels = [None] * bs
-        if boxes is None:
-            boxes = [None] * bs
-        if mask_input is None:
-            mask_input = [None] * bs
-
-        masks, iou_preds, low_res_masks = [], [], []
-
-        for i in range(bs):
-            masks_i, iou_pred_i, low_res_mask_i = self.predict_torch(
-                features=self.features[i:i + 1],
-                point_coords=point_coords[i],
-                point_labels=point_labels[i],
-                boxes=boxes[i],
-                mask_input=mask_input[i],
-                multimask_output=multimask_output,
-                return_logits=return_logits,
-            )
-            masks.append(masks_i)
-            iou_preds.append(iou_pred_i)
-            low_res_masks.append(low_res_mask_i)
-
-        # masks = torch.stack(masks, dim=0)
-        # iou_preds = torch.stack(iou_preds, dim=0)
-        # low_res_masks = torch.stack(low_res_masks, dim=0)
-        return masks, iou_preds, low_res_masks
-
-    @torch.no_grad()
     def predict_torch(
-            self,
-            features: Optional[torch.Tensor] = None,
-            point_coords: Optional[torch.Tensor] = None,
-            point_labels: Optional[torch.Tensor] = None,
-            boxes: Optional[torch.Tensor] = None,
-            mask_input: Optional[torch.Tensor] = None,
-            multimask_output: bool = True,
-            return_logits: bool = False,
+        self,
+        point_coords: Optional[torch.Tensor] = None,
+        point_labels: Optional[torch.Tensor] = None,
+        boxes: Optional[torch.Tensor] = None,
+        mask_input: Optional[torch.Tensor] = None,
+        multimask_output: bool = True,
+        return_logits: bool = False,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Predict masks for the given input prompts, using the currently set image.
@@ -271,14 +214,9 @@ class SamPredictor:
             raise RuntimeError("An image must be set with .set_image(...) before mask prediction.")
 
         if point_coords is not None:
-            point_coords = point_coords.to(self.features.device)
-            point_labels = point_labels.to(self.features.device)
             points = (point_coords, point_labels)
         else:
             points = None
-
-        if features is None:
-            features = self.features
 
         bs = self.model.prompt_encoder._get_batch_size(points, boxes, mask_input)
 
@@ -292,7 +230,7 @@ class SamPredictor:
 
         # Predict masks
         low_res_masks, iou_predictions, _ = self.model.mask_decoder(
-            image_embeddings=features,
+            image_embeddings=self.features,
             image_pe=self.model.prompt_encoder.get_dense_pe(),
             sparse_prompt_embeddings=sparse_embeddings,
             dense_prompt_embeddings=dense_embeddings,

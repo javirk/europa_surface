@@ -2,9 +2,8 @@
 # Caroline Haslebacher
 # calculation of the precision and the recall separately
 # copied from \\titania.unibe.ch\Space\Groups\PIG\Caroline\lineament_detection\pytorch_maskrcnn\code\galileo_dataset_pub2_nocusps\pub_files\code
-# ATTENTION: this imports from edited coco_eval.py and coco_utils.py in './detection' (from 'vision')
+# ATTENTION: this imports from edited coco_eval.py and coco_utils.py in 'detection' (from 'vision')
 
-#%%
 import torch
 # import the data loader
 from data_loader import Lineament_dataloader
@@ -27,8 +26,7 @@ from matplotlib.colors import ListedColormap, BoundaryNorm
 
 # from pycocotools.coco import COCO
 # from pycocotools.cocoeval import COCOeval
-# ATTENTION: use pip install "git+https://github.com/CarolineHaslebacher/cocoapi.git@cocoeval_for_multiple_categories#egg=pycocotools&subdirectory=PythonAPI"
-# in order to apply changes
+# ATTENTION: this imports directly from manipulated version in this folder!!!!
 from detection.coco_eval import CocoEvaluator
 from detection.coco_utils import get_coco_api_from_dataset
 
@@ -134,14 +132,14 @@ rec_thrs = np.array([0., 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0
                      0.99, 1.])
 
 
-def main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, subset='test'):
+def main(root, data_root, datafolders, hdfdatafolder, save_path, subset='test'):
     if isinstance(hdfdatafolder, str):
         hdfdatafolder = Path(hdfdatafolder)
-    for datafolder, shift5to4 in zip(datafolders, shiftbools):
+    for datafolder in datafolders:
         # automatically look inside this hard-coded folder for the datafolder subfolder
         mygalipath = data_root / datafolder
         # TEST SET
-        dataset = Lineament_dataloader(mygalipath / subset, transform=None, bbox_threshold=20, shift5to4=shift5to4)
+        dataset = Lineament_dataloader(mygalipath / subset, transform=None, bbox_threshold=20)
 
         batch_size = 6
         dataloader = torch.utils.data.DataLoader(
@@ -226,7 +224,7 @@ def main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, sub
 
         # old: color_dict = {0: 'black', 1: 'green', 2: 'maroon', 3: 'deepskyblue', 4: 'khaki' }
         # update for revision:
-        color_dict = {0: 'black', 1: '#7F4A9D', 2: '#ED9A22', 3: '#8ED311', 4: '#00FFC5', 5: '#00FFC5'} # {0: 'black', 1: '#7F4A9D', 2: '#ED9A22', 3: '#FFD380', 4: '#D9B6D6'}
+        color_dict = {0: 'black', 1: '#7F4A9D', 2: '#ED9A22', 3: '#FFD380', 4: '#D9B6D6'}
         # create custom lines for legend
         linewid = 2
         custom_lines = [Line2D([0], [0], color=color_dict[1], lw=linewid),
@@ -273,11 +271,12 @@ def main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, sub
             itd = {'bbox': 'bounding boxes', 'segm': 'masks'}
             # Category Dictionary
             cd = {'0': 'bands', '1': 'double ridges', '2': 'ridge complexes', '3': 'undiff. lineae'}
-            for cat_idx in range(4):  # changed back to 4. this was a mistake before implementation of shift5to4
+            for cat_idx in range(1,
+                                 5):  # NEW: I adapted from range(4) to range(1,5) to account for the 'empty' category.
                 points = np.array([rec_thrs, precision[:, cat_idx]]).T.reshape(-1, 1, 2)
                 segments = np.concatenate([points[:-1], points[1:]], axis=1)
                 # prcurv = axs.plot(rec_thrs, precision[:,cat_idx], label=cd[str(cat_idx)])
-                cmap = ListedColormap(['r', color_dict[cat_idx + 1]])
+                cmap = ListedColormap(['r', color_dict[cat_idx]])  # NEW: downgraded from cat_idx+1 to cat_idx
                 norm = BoundaryNorm([0, 0.5, 1], cmap.N)  # old: plt.Normalize(0, 1) (no difference!)
                 lc = LineCollection(segments, cmap=cmap, norm=norm, joinstyle='bevel',
                                     linewidth=linewid)  # , norm=norm, cmap='viridis'
@@ -348,14 +347,13 @@ def get_caroline_config():
         "val_and_train_pytorch_224x224_LINEAMAPPER_v1.0",  # old test set, 224x224
         # "val_and_train_pytorch_112x112_LINEAMAPPER_v1.0", # old test set, re-tiled to 112x112
     ]
-    shiftbools = [False, True] # false for regiomaps v1.1 (new dataset), true vor v1.0 (old dataset)
     save_path = 'lineament_detection/RegionalMaps_CH_NT_EJL_LP/mapping/output/precision_recall/SAM_v1'
     #  load model and data
     data_root = root / 'lineament_detection/RegionalMaps_CH_NT_EJL_LP/mapping/data/tiles'
     hdfdatafolder = root / 'lineament_detection/Reinforcement_Learning_SAM/test_SAMv1'
     subset = 'test'
 
-    return root, data_root, datafolders, hdfdatafolder, save_path, subset, shiftbools
+    return root, data_root, datafolders, hdfdatafolder, save_path, subset
 
 
 def get_javier_config(hdfdatafolder):
@@ -364,22 +362,21 @@ def get_javier_config(hdfdatafolder):
         "newdataset_224x224",  # new dataset, 224x224
         "dataset_224x224",  # old test set, 224x224
     ]
-    shiftbools = [False, True] # false for regiomaps v1.1 (new dataset), true vor v1.0 (old dataset)
     save_path = os.path.join(hdfdatafolder, 'precision_recall')
     #  load model and data
     data_root = Path('/Users/javier/Documents/datasets/europa')
     subset = 'test_raw'
 
-    return root, data_root, datafolders, hdfdatafolder, save_path, subset, shiftbools
+    return root, data_root, datafolders, hdfdatafolder, save_path, subset
 
-#%%
+
 if __name__ == '__main__':
-    user = 'caroline'
+    user = 'javier'
     if user == 'javier':
         hdf_folder = './results/Galileo/Galileo_20240531-102944'
-        root, data_root, datafolders, hdfdatafolder, save_path, subset, shiftbools = get_javier_config(hdf_folder)
+        root, data_root, datafolders, hdfdatafolder, save_path, subset = get_javier_config(hdf_folder)
     elif user == 'caroline':
-        root, data_root, datafolders, hdfdatafolder, save_path, subset, shiftbools = get_caroline_config()
+        root, data_root, datafolders, hdfdatafolder, save_path, subset = get_caroline_config()
     else:
         raise NotImplementedError
 
@@ -387,6 +384,4 @@ if __name__ == '__main__':
 
     # train on the GPU or on the CPU, if a GPU is not available
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    main(root, data_root, datafolders, shiftbools, hdfdatafolder, save_path, subset=subset)
-
-# %%
+    main(root, data_root, datafolders, hdfdatafolder, save_path, subset=subset)

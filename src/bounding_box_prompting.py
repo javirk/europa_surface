@@ -17,7 +17,6 @@ import src.datasets as datasets
 from src.models.utils import get_model
 from segment_anything import SamBBoxMaskGenerator
 from segment_anything.utils.amg import box_xywh_to_xyxy
-from src.datasets.dataset_utils import ListCollate
 
 
 def plot_images_grid(
@@ -95,7 +94,6 @@ def bounding_box_prompt(args):
         dataset_class = getattr(datasets, dataset_name)
         # Fold number is not important becase the test set is the same for all folds
         dataset = dataset_class(root=args.data_location, split='test', fold_number=0, get_full_sample=True)
-        loader = torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=False, collate_fn=ListCollate(['bboxes']))
         args.num_classes = dataset.num_classes
         args.ignore_index = dataset.ignore_index
 
@@ -106,6 +104,7 @@ def bounding_box_prompt(args):
             if args.testing_ckpt:
                 model.load_state_dict(torch.load(fold_ckpt, map_location=device))
 
+            # model = torch.nn.DataParallel(model, device_ids=devices)
             model.to(device)
             model.eval()
 
@@ -113,12 +112,10 @@ def bounding_box_prompt(args):
             mask_annotator = sv.MaskAnnotator(color_lookup=sv.ColorLookup.INDEX)
             box_annotator = sv.BoundingBoxAnnotator(color=sv.Color.red())
 
-            # for k, data in tqdm(enumerate(dataset)):
-            for k, data in tqdm(enumerate(loader)):
-                inp = data['image'].to(device)  # [B, 3, H, W]
+            for k, data in tqdm(enumerate(dataset)):
+                inp = data['image'].permute(1,2,0).numpy()  # [3, H, W]
                 name = data['name']
-                boxes = data['bboxes']  # [Bx[N, 4]]
-                boxes = [box.to(device) for box in boxes]
+                boxes = data['bboxes']  # [N, 4]
 
                 # Batch the boxes first
                 sam_result = mask_generator.generate(inp, boxes)
@@ -126,21 +123,37 @@ def bounding_box_prompt(args):
                 # "bbox": mask_data['boxes'],
                 # "predicted_iou": mask_data['iou_preds'],
 
-                masks = sam_result['segmentation']  # List[torch.Tensor]
-                inp = inp.detach().cpu().numpy()
-                for i, mask in enumerate(masks):
-                    image = inp[i].copy().transpose(1, 2, 0)
-                    instances = (mask[:, 1:].sum(axis=1) > 0).detach().cpu().numpy()
+                mask = sam_result['segmentation']  # Numpy array already
 
-                    instance_detections = sv.Detections(xyxy=boxes[i].numpy(), mask=instances,
-                                                        class_id=np.zeros(len(boxes[i])))
-                    annotated_image_semantic = mask_annotator.annotate(scene=image.copy(),
-                                                                       detections=instance_detections)
-                    image = box_annotator.annotate(scene=image.copy(), detections=instance_detections)
+                instances = (mask[:, 1:].sum(axis=1) > 0)
 
-                    plot_images_grid(
-                        images=[image, annotated_image_semantic],
-                        grid_size=(1, 2),
-                        titles=['source image', 'instance segmentation'],
-                        # save_path=os.path.join(args.save, name + '.png')
-                    )
+                instance_detections = sv.Detections(xyxy=boxes.numpy(), mask=instances, class_id=np.zeros(len(boxes)))
+                annotated_image_semantic = mask_annotator.annotate(scene=inp.copy(),
+                                                                   detections=instance_detections)
+                inp = box_annotator.annotate(scene=inp.copy(), detections=instance_detections)
+
+                plot_images_grid(
+                    images=[inp, annotated_image_semantic],
+                    grid_size=(1, 2),
+                    titles=['source image', 'instance segmentation'],
+                    save_path=os.path.join(args.save, name + '.png')
+                )
+
+                # detections = sv.Detections.from_sam(sam_result=sam_result)  # This does not use the class id
+                # sem_mask = np.zeros([5, *mask.shape[1:]])
+                #
+                # # Put all the annotations together for semantic segmentation
+                # for j in range(len(mask)):
+                #     sem_mask[labels[j], mask[j] == 1] = 1
+                # semantic_detections = sv.Detections(xyxy=np.zeros((sem_mask.shape[0], 4)), mask=sem_mask.astype(bool))
+                # annotated_image = mask_annotator.annotate(scene=inp.copy(),
+                #                                           detections=detections)  # Instance segmentation
+                # annotated_image_semantic = mask_annotator.annotate(scene=inp.copy(),
+                #                                                    detections=semantic_detections)  # Semantic seg
+                #
+                # plot_images_grid(
+                #     images=[inp, annotated_image, annotated_image_semantic],
+                #     grid_size=(1, 3),
+                #     titles=['source image', 'instance segmentation', 'semantic segmentation'],
+                #     save_path=os.path.join(args.save, name + '.png')
+                # )
