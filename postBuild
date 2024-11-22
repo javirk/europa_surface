@@ -1,10 +1,1 @@
-#!/bin/bash
 
-# Explicitly run as root if permissions are limited
-if [ "$(id -u)" -ne 0 ]; then
-    echo "The script must run as root." >&2
-    exit 1
-fi
-
-# Install libgl1 (with automatic confirmation)
-apt-get update && apt-get install -y libgl1
