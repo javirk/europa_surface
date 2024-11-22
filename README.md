@@ -1,9 +1,9 @@
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/javirk/europa_surface/master?labpath=DEMO_bbox_prompt.ipynb)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/javirk/europa_surface/master?labpath=DEMO_draw_box_to_mask.ipynb)
 
 #### Code used for publication XX (subm. to PSJ)
 
 ## Demo: test the interactive LineaMapper v2.0
- **Try it directly online: [Demo on Binder](https://mybinder.org/v2/gh/javirk/europa_surface/master?labpath=DEMO_bbox_prompt.ipynb)** (takes a few minutes to start up).
+ **Try it directly online: [Demo on Binder](https://mybinder.org/v2/gh/javirk/europa_surface/master?labpath=DEMO_draw_box_to_mask.ipynb)** (takes a few minutes to start up).
 
 Steps:
 - Download the jupyter notebook called *LineaMapper_v2_bbox_prompt.ipynb*a s well as the test image *TO BE NAMED.png* to one folder on your local machine.
@@ -23,6 +23,9 @@ If you would like to use the stitching tool, ...
 
 Use python 3.12 for the installation. For example, use:
 > virtualenv -p your/path/to/python3.12/python.exe vgeosam312
+
+Then, install the required packages with pip:
+> pip install -r requirements.txt
 
 Install pycocotools with
 > git clone https://github.com/CarolineHaslebacher/cocoapi.git
