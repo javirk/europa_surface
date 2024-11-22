@@ -21,6 +21,21 @@ Instead of executing the jupyter notebook on your local machine, you can also us
 
 If you would like to use the stitching tool, ...
 
+Use python 3.12 for the installation. For example, use:
+> virtualenv -p your/path/to/python3.12/python.exe vgeosam312
+
+Install pycocotools with
+> git clone https://github.com/CarolineHaslebacher/cocoapi.git
+> 
+> git checkout cocoeval_for_multiple_categories
+
+> cd /cocoapi
+> 
+> pip install ./PythonAPI
+> 
+(works on Windows *only* with /common/ folder copied into PythonAPI)
+
+
 Private note: The requirements.txt come from venv 'vgeosam312'.
 
 
