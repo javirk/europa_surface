@@ -10,7 +10,7 @@ from torch.nn import functional as F
 from torchvision.transforms.functional import resize, to_pil_image  # type: ignore
 
 from copy import deepcopy
-from typing import Tuple, List
+from typing import Tuple
 
 
 class ResizeLongestSide:
@@ -65,7 +65,7 @@ class ResizeLongestSide:
         )
 
     def apply_coords_torch(
-            self, coords: torch.Tensor, original_size: Tuple[int, ...]
+        self, coords: torch.Tensor, original_size: Tuple[int, ...]
     ) -> torch.Tensor:
         """
         Expects a torch tensor with length 2 in the last dimension. Requires the
@@ -82,7 +82,7 @@ class ResizeLongestSide:
         return coords
 
     def apply_boxes_torch(
-            self, boxes: torch.Tensor, original_size: Tuple[int, ...]
+        self, boxes: torch.Tensor, original_size: Tuple[int, ...]
     ) -> torch.Tensor:
         """
         Expects a torch tensor with shape Bx4. Requires the original image
@@ -90,14 +90,6 @@ class ResizeLongestSide:
         """
         boxes = self.apply_coords_torch(boxes.reshape(-1, 2, 2), original_size)
         return boxes.reshape(-1, 4)
-
-    def apply_boxes_torch_batch(
-            self, boxes: List, original_size: Tuple[int, ...]
-    ) -> List[torch.Tensor]:
-        for i, box in enumerate(boxes):
-            boxes[i] = self.apply_boxes_torch(box, original_size)
-        return boxes
-
 
     @staticmethod
     def get_preprocess_shape(oldh: int, oldw: int, long_side_length: int) -> Tuple[int, int]:

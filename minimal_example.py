@@ -1,13 +1,8 @@
-##%
-
-#%%
 import cv2
 import torch
-import numpy as np
 from segment_anything.automatic_mask_generator import SamAutomaticMaskGenerator
 from segment_anything import sam_model_registry
-
-#%%
+import numpy as np
 
 def xywh_to_xyxy(boxes_xywh: np.ndarray) -> np.ndarray:
     xyxy = boxes_xywh.copy()
@@ -64,4 +59,3 @@ sv.plot_images_grid(
     titles=['source image', 'segmented image', 'class segmentation image']
 )
 
-#%%

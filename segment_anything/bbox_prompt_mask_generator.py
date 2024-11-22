@@ -71,12 +71,12 @@ class SamBBoxMaskGenerator:
         self.crop_overlap_ratio = 512 / 1500
 
     @torch.no_grad()
-    def generate(self, images: torch.Tensor, bboxes: torch.Tensor) -> List[Dict[str, Any]]:
+    def generate(self, image: np.ndarray, bboxes: torch.Tensor) -> List[Dict[str, Any]]:
         """
         Generates masks for the given image.
 
         Arguments:
-          images (torch.Tensor): The images to generate masks for, in BCHW uint8 format.
+          image (np.ndarray): The image to generate masks for, in HWC uint8 format.
 
         Returns:
            list(dict(str, any)): A list over records for masks. Each record is
@@ -97,7 +97,7 @@ class SamBBoxMaskGenerator:
         """
 
         # Generate masks
-        mask_data = self._generate_masks(images, bboxes)
+        mask_data = self._generate_masks(image, bboxes)
 
         ann = {
             "segmentation": mask_data['thresholded_masks'],
@@ -108,8 +108,8 @@ class SamBBoxMaskGenerator:
 
         return ann
 
-    def _generate_masks(self, images: torch.Tensor, bounding_boxes: torch.Tensor) -> MaskData:
-        orig_size = images.shape[-2:]
+    def _generate_masks(self, image: [np.ndarray, torch.Tensor], bounding_boxes: torch.Tensor) -> MaskData:
+        orig_size = image.shape[:2]
         crop_boxes, layer_idxs = generate_crop_boxes(
             orig_size, self.crop_n_layers, self.crop_overlap_ratio
         )
@@ -117,7 +117,7 @@ class SamBBoxMaskGenerator:
         # Iterate over image crops
         data = MaskData()
         for crop_box, layer_idx in zip(crop_boxes, layer_idxs):
-            crop_data = self._process_crop(images, crop_box, layer_idx, orig_size, bounding_boxes)
+            crop_data = self._process_crop(image, crop_box, layer_idx, orig_size, bounding_boxes)
             data.cat(crop_data)
 
         data.to_numpy()
@@ -125,7 +125,7 @@ class SamBBoxMaskGenerator:
 
     def _process_crop(
         self,
-        images: torch.Tensor,
+        image: np.ndarray,
         crop_box: List[int],
         crop_layer_idx: int,
         orig_size: Tuple[int, ...],
@@ -133,9 +133,9 @@ class SamBBoxMaskGenerator:
     ) -> MaskData:
         # Crop the image and calculate embeddings
         x0, y0, x1, y1 = crop_box
-        cropped_im = images[:, :, y0:y1, x0:x1]
-        cropped_im_size = cropped_im.shape[-2:]
-        self.predictor.set_images_batch(cropped_im)
+        cropped_im = image[y0:y1, x0:x1, :]
+        cropped_im_size = cropped_im.shape[:2]
+        self.predictor.set_image(cropped_im)
 
         # Generate masks for this crop in batches
         data = MaskData()
@@ -157,14 +157,16 @@ class SamBBoxMaskGenerator:
         orig_h, orig_w = orig_size
 
         # Run models on this batch
-        in_boxes = self.predictor.transform.apply_boxes_torch_batch(boxes, im_size)
-        masks, iou_preds, _ = self.predictor.predict_torch_batch(
+        in_boxes = self.predictor.transform.apply_boxes_torch(boxes, im_size)
+        masks, iou_preds, _ = self.predictor.predict_torch(
             boxes=in_boxes,
             multimask_output=True,
             return_logits=True,
         )
-
-        thresholded_masks = [mask > 0.0 for mask in masks]
+        thresholded_masks = (masks > 0.0)
+        # Filter the parts that are outside the bbox
+        # for i, box in enumerate(boxes):
+        #     thresholded_masks[i, :, box[0]:box[2], box[1]:box[3]] = 0
 
         # Serialize predictions and store in MaskData
         data = MaskData(
