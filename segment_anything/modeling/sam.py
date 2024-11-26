@@ -115,18 +115,18 @@ class Sam(nn.Module):
         x = (x - self.pixel_mean) / self.pixel_std
 
         # Pad
-        h, w = x.shape[-2:]
-        padh = self.image_encoder.img_size - h
-        padw = self.image_encoder.img_size - w
-        x = F.pad(x, (0, padw, 0, padh))
+        # h, w = x.shape[-2:]
+        # padh = self.image_encoder.img_size - h
+        # padw = self.image_encoder.img_size - w
+        # x = F.pad(x, (0, padw, 0, padh))
 
         # Resize
-        # x = F.interpolate(
-        #     x,
-        #     (self.image_encoder.img_size, self.image_encoder.img_size),
-        #     mode="bilinear",
-        #     align_corners=False,
-        # )
+        x = F.interpolate(
+            x,
+            (self.image_encoder.img_size, self.image_encoder.img_size),
+            mode="bilinear",
+            align_corners=False,
+        )
         return x
 
     def forward(
@@ -193,7 +193,6 @@ class Sam(nn.Module):
             points: Optional[torch.Tensor] = None,
             mask_inputs: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        full_size = (self.image_encoder.img_size, self.image_encoder.img_size)
         with torch.set_grad_enabled(self.train_prompt_encoder):
             sparse_embeddings, dense_embeddings = self.prompt_encoder(
                 bs=image_embeddings.shape[0],
@@ -210,18 +209,20 @@ class Sam(nn.Module):
         )
 
         low_res_masks, iou_predictions, intermediate_rep = outputs_decoder
+        value_predictions = None
 
-        masks = self.postprocess_masks(
+        ori_res_masks = F.interpolate(
             low_res_masks,
-            input_size=full_size,
-            original_size=original_size,
+            size=original_size,
+            mode="bilinear",
+            align_corners=False,
         )
-
         outputs = {
-            'masks': masks,
+            'masks': ori_res_masks,
             'iou_predictions': iou_predictions,
             'low_res_logits': low_res_masks,
             'intermediate_rep': intermediate_rep,
             'image_embeddings': image_embeddings,
+            'values': value_predictions,
         }
         return outputs

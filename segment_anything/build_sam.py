@@ -7,41 +7,59 @@
 import torch
 
 from functools import partial
+from torch.nn import functional as F
 
 from .modeling import (ImageEncoderViT, MaskDecoder, PromptEncoder, Sam, TwoWayTransformer, TinyViT)
 
 
-def build_sam_vit_h(checkpoint=None):
+def build_sam_vit_h(checkpoint=None, train_encoder=True, train_prompt_encoder=True, train_decoder=True, num_classes=3,
+                    image_size=512):
     return _build_sam(
         encoder_embed_dim=1280,
         encoder_depth=32,
         encoder_num_heads=16,
         encoder_global_attn_indexes=[7, 15, 23, 31],
         checkpoint=checkpoint,
+        train_encoder=train_encoder,
+        train_prompt_encoder=train_prompt_encoder,
+        train_decoder=train_decoder,
+        num_classes=num_classes,
+        image_size=image_size
     )
 
 
 build_sam = build_sam_vit_h
 
 
-def build_sam_vit_l(checkpoint=None):
+def build_sam_vit_l(checkpoint=None, train_encoder=True, train_prompt_encoder=True, train_decoder=True, num_classes=3,
+                    image_size=512):
     return _build_sam(
         encoder_embed_dim=1024,
         encoder_depth=24,
         encoder_num_heads=16,
         encoder_global_attn_indexes=[5, 11, 17, 23],
         checkpoint=checkpoint,
+        train_encoder=train_encoder,
+        train_prompt_encoder=train_prompt_encoder,
+        train_decoder=train_decoder,
+        num_classes=num_classes,
+        image_size=image_size
     )
 
 
-def build_sam_vit_b(checkpoint=None, num_classes=3):
+def build_sam_vit_b(checkpoint=None, train_encoder=True, train_prompt_encoder=True, train_decoder=True, num_classes=3,
+                    image_size=512):
     return _build_sam(
         encoder_embed_dim=768,
         encoder_depth=12,
         encoder_num_heads=12,
         encoder_global_attn_indexes=[2, 5, 8, 11],
         checkpoint=checkpoint,
-        num_classes=num_classes
+        train_encoder=train_encoder,
+        train_prompt_encoder=train_prompt_encoder,
+        train_decoder=train_decoder,
+        num_classes=num_classes,
+        image_size=image_size
     )
 
 
@@ -49,7 +67,7 @@ def build_sam_vit_t(checkpoint=None, train_encoder=True, train_prompt_encoder=Tr
                     image_size=512):
     return _build_sam_vit_t(checkpoint=checkpoint, num_classes=num_classes, image_size=image_size)
 
-  
+
 sam_model_registry = {
     "default": build_sam_vit_h,
     "vit_h": build_sam_vit_h,
@@ -60,15 +78,21 @@ sam_model_registry = {
 
 
 def _build_sam(
-    encoder_embed_dim,
-    encoder_depth,
-    encoder_num_heads,
-    encoder_global_attn_indexes,
-    checkpoint=None,
-    num_classes=3,
+        encoder_embed_dim,
+        encoder_depth,
+        encoder_num_heads,
+        encoder_global_attn_indexes,
+        checkpoint=None,
+        image_size=512,
+        num_classes=3,
+        train_encoder=True,
+        train_prompt_encoder=True,
+        train_decoder=True
 ):
+    if type(image_size) is tuple:
+        assert image_size[0] == image_size[1]
+        image_size = image_size[0]
     prompt_embed_dim = 256
-    image_size = 1024
     vit_patch_size = 16
     image_embedding_size = image_size // vit_patch_size
     sam = Sam(
@@ -106,6 +130,9 @@ def _build_sam(
         ),
         pixel_mean=[123.675, 116.28, 103.53],
         pixel_std=[58.395, 57.12, 57.375],
+        train_encoder=train_encoder,
+        train_prompt_encoder=train_prompt_encoder,
+        train_decoder=train_decoder
     )
     sam.eval()
     if checkpoint is not None:
@@ -117,6 +144,7 @@ def _build_sam(
             new_state_dict = load_from(sam, state_dict, image_size, vit_patch_size)
             sam.load_state_dict(new_state_dict)
     return sam
+
 
 # Mobile-SAM
 def _build_sam_vit_t(

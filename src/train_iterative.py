@@ -31,7 +31,6 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_i
         wandb.config.update(args, allow_val_change=True)
 
     model = get_model(args, dataset.train_dataset, train_encoder=True, train_prompt_encoder=True, train_decoder=True)
-
     # model = torch.nn.DataParallel(model, device_ids=devices)
     model.to(device)
     model.train()
@@ -93,7 +92,6 @@ def train_iterative(args, initial_epoch=0, wandb_step=0, fold_number=0, device_i
                         losses[f'train/{name}'] = loss_item.item() / args.num_iterations
                     else:
                         losses[f'train/{name}'] += loss_item.item() / args.num_iterations
-                        
                     loss += loss_item * w
 
                 loss /= args.num_iterations
