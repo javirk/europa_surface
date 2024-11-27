@@ -71,12 +71,14 @@ class SamBBoxMaskGenerator:
         self.crop_overlap_ratio = 512 / 1500
 
     @torch.no_grad()
-    def generate(self, images: torch.Tensor, bboxes: torch.Tensor) -> List[Dict[str, Any]]:
+    def generate(self, images: [torch.Tensor, np.ndarray], bboxes: [torch.Tensor, List]) -> List[Dict[str, Any]]:
         """
         Generates masks for the given image.
 
         Arguments:
           images (torch.Tensor): The images to generate masks for, in BCHW uint8 format.
+                 (np.ndarray): The images to generate masks for, in HWC uint8 format.
+          bboxes (torch.Tensor): The bounding boxes to generate masks for, in XYXY format. BN4
 
         Returns:
            list(dict(str, any)): A list over records for masks. Each record is
@@ -95,6 +97,14 @@ class SamBBoxMaskGenerator:
                crop_box (list(float)): The crop of the image used to generate
                  the mask, given in XYWH format.
         """
+
+        if isinstance(images, np.ndarray):
+            images = torch.as_tensor(images)
+            if images.dim() == 3:
+                images = images.permute(2, 0, 1).unsqueeze(0)
+
+        if not isinstance(bboxes, list):
+            bboxes = [bboxes]
 
         # Generate masks
         mask_data = self._generate_masks(images, bboxes)
