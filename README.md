@@ -1,4 +1,4 @@
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/javirk/europa_surface/master?labpath=DEMO_draw_box_to_mask.ipynb)
+
 
 revert_fixed: [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/javirk/europa_surface/revert_fixed?labpath=DEMO_draw_box_to_mask.ipynb)
 
