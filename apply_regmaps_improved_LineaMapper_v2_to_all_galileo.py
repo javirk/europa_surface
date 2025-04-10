@@ -52,25 +52,25 @@ def coordm_to_lat(coordm):
 
 #%%
 
-# for geosin in geocubes:
-#     # print(geosin)
-#     dataset = gdal.Open(geosin.as_posix(), gdal.GA_ReadOnly)
-#     ulx, xres, xskew, uly, yskew, yres  = dataset.GetGeoTransform()
-#     # print(ulx)
-#     # get central coordinates of dataset
-#     # central_merid = '{:.3f}'.format(360-coordm_to_lon(ulx + (0.5*dataset.RasterXSize * xres))) # x is longitude
-#     centre_lat = '{:.4f}'.format(coordm_to_lat(uly + (0.5*dataset.RasterYSize * yres))) # x is longitude
-#     centre_lon = '{:.4f}'.format(360-coordm_to_lon(ulx + (0.5*dataset.RasterXSize * xres))) # x is longitude
-#     # print(centre_lat)
-#     # print(centre_lon)
-#     # define projection file (copied from S:\Groups\PIG\Caroline\lineament_detection\galileo_manual_segmentation\data\polygons\for_analysis\Sinusoidal\Sinusoidal_EUROPA_0.prj)
-#     orthographic = f'PROJCS["Orthographic_EUROPA_template_2",GEOGCS["New Geographic Coordinate System",DATUM["<Custom>",SPHEROID["<Custom>",1560800.0,0.0]],PRIMEM["Reference_Meridian",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Orthographic"],PARAMETER["False_Easting",0.0],PARAMETER["False_Northing",0.0],PARAMETER["Longitude_Of_Center",{centre_lon}],PARAMETER["Latitude_Of_Center",{centre_lat}],UNIT["Meter",1.0]]'
-#     # write to file
-#     print(orthographic)
-#     with open(ortho_prj_path.joinpath("{}.prj".format(geosin.stem)), "w") as prf_file:
-#         prf_file.write(orthographic)
-#     # close dataset by deleting variable in python
-#     del dataset
+for geosin in geocubes:
+    # print(geosin)
+    dataset = gdal.Open(geosin.as_posix(), gdal.GA_ReadOnly)
+    ulx, xres, xskew, uly, yskew, yres  = dataset.GetGeoTransform()
+    # print(ulx)
+    # get central coordinates of dataset
+    # central_merid = '{:.3f}'.format(360-coordm_to_lon(ulx + (0.5*dataset.RasterXSize * xres))) # x is longitude
+    centre_lat = '{:.4f}'.format(coordm_to_lat(uly + (0.5*dataset.RasterYSize * yres))) # x is longitude
+    centre_lon = '{:.4f}'.format(360-coordm_to_lon(ulx + (0.5*dataset.RasterXSize * xres))) # x is longitude
+    # print(centre_lat)
+    # print(centre_lon)
+    # define projection file (copied from S:\Groups\PIG\Caroline\lineament_detection\galileo_manual_segmentation\data\polygons\for_analysis\Sinusoidal\Sinusoidal_EUROPA_0.prj)
+    orthographic = f'PROJCS["Orthographic_EUROPA_template_2",GEOGCS["New Geographic Coordinate System",DATUM["<Custom>",SPHEROID["<Custom>",1560800.0,0.0]],PRIMEM["Reference_Meridian",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Orthographic"],PARAMETER["False_Easting",0.0],PARAMETER["False_Northing",0.0],PARAMETER["Longitude_Of_Center",{centre_lon}],PARAMETER["Latitude_Of_Center",{centre_lat}],UNIT["Meter",1.0]]'
+    # write to file
+    print(orthographic)
+    with open(ortho_prj_path.joinpath("{}.prj".format(geosin.stem)), "w") as prf_file:
+        prf_file.write(orthographic)
+    # close dataset by deleting variable in python
+    del dataset
 
 # %%
 
@@ -109,14 +109,14 @@ for geocub in geocubes:
     # out: equitiff_path
     # gdal_translate -of GTiff input.cub output.tif
     # this is just for me to visualize and load into ArcGIS
-    # command = 'gdal_translate -of GTiff {} {}'.format(geocub, equitiff_path.joinpath("{}.tif".format(geocub.stem)))
-    # print(command)
-    # os.system(command)   
+    command = 'gdal_translate -of GTiff {} {}'.format(geocub, equitiff_path.joinpath("{}.tif".format(geocub.stem)))
+    print(command)
+    os.system(command)   
 
-    # # orthographic
-    # command = 'gdalwarp -s_srs {} -t_srs {} {} {}'.format(equipath.joinpath(equifile).as_posix(), ortho_prj_path.joinpath("{}.prj".format(geocub.stem)).as_posix(), geocub, orthoind_path.joinpath(geocub.stem + '.tif').as_posix())
-    # print(command)
-    # os.system(command)   
+    # orthographic
+    command = 'gdalwarp -s_srs {} -t_srs {} {} {}'.format(equipath.joinpath(equifile).as_posix(), ortho_prj_path.joinpath("{}.prj".format(geocub.stem)).as_posix(), geocub, orthoind_path.joinpath(geocub.stem + '.tif').as_posix())
+    print(command)
+    os.system(command)   
 
     # be careful, here, we have to take the path where the reprojected orthographic files live as -geofile
     tf = geocub.stem
