@@ -3,7 +3,7 @@
 ## Demo: test the interactive LineaMapper v2.0
  **Try it directly online: [Demo on Binder](https://mybinder.org/v2/gh/javirk/europa_surface/master?labpath=DEMO_draw_box_to_mask.ipynb)** (takes a few minutes to start up).
 
-You need to install GDAL on your machine (not only in the python environment).
+You need to install GDAL on your machine (not only in the python environment), for example from here https://trac.osgeo.org/osgeo4w/.
 
 Steps:
 - Download the jupyter notebook called *LineaMapper_v2_bbox_prompt.ipynb*a s well as the test image *TO BE NAMED.png* to one folder on your local machine.
