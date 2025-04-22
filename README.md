@@ -3,6 +3,8 @@
 ## Demo: test the interactive LineaMapper v2.0
  **Try it directly online on Google Colab.
 
+Code and data are published on Mendeley Data:https: //data.mendeley.com/datasets/rjhsjrnxgv/1
+
 You need to install GDAL on your machine (not only in the python environment), for example from here https://trac.osgeo.org/osgeo4w/. Otherwise, the requirements_full.txt should work 
 
 Steps:
