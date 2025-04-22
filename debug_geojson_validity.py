@@ -199,7 +199,7 @@ def get_model_instance_segmentation(num_classes, pretrained='MaskRCNN_ResNet50_F
                         posweights=posweights # implemented in site_packages, python lib, envs
                         )
     # note: you can pass all **kwargs that can be passed to MaskRCNN as well!
-    # from C:\Users\ch20s351\Anaconda3\envs\pytorch\Lib\site-packages\torchvision\models\detection\mask_rcnn.py
+    # from C:\Users\USERNAME\Anaconda3\envs\pytorch\Lib\site-packages\torchvision\models\detection\mask_rcnn.py
     # model = MaskRCNN(backbone, num_classes, **kwargs)
 
     # get number of input features for the classifier

@@ -24,7 +24,7 @@ import time
 
 
 current = os.getcwd()
-titaniach = Path(current.split('Caroline')[0]) / 'Caroline'
+titaniach = Path(current.split('Caroline_unibe')[0]) / 'Caroline_unibe'
 
 
 #%%
@@ -117,3 +117,5 @@ version = 'v2' # 'v1' or 'v2'
 # main
 forward_LM(modelname, version, subset, geosize)
 
+
+# %%

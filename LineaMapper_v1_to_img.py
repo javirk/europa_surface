@@ -31,16 +31,16 @@ import time
 
 import json
 import numpy as np
-import skimage.io
+# import skimage.io
 import math
-import scipy
+# import scipy
 
-from PIL import Image
+# from PIL import Image
 import cv2
 
 import pickle
 import argparse
-import warnings
+# import warnings
 
 #%%
 from geojson import MultiPolygon, Feature, FeatureCollection, dump, Point
@@ -121,7 +121,8 @@ def segmask_box(img, target, score_thresh=0.5, alpha=0.8, colors=None, width=1, 
         # double ridges, 2 --> maroon, #800000
         # ridge complexes, 3 --> deepskyblue, #00bfff
         # undifferentiated linea, 4 --> khaki, #f0e68c
-        color_dict = {0: 'black', 1: '#ED9A22', 2: 'maroon', 3: 'deepskyblue', 4: 'khaki' } # in hex: 
+        # color_dict = {0: 'black', 1: '#ED9A22', 2: 'maroon', 3: 'deepskyblue', 4: 'khaki' } # in hex: 
+        color_dict = {0: 'black', 1: '#7F4A9D', 2: '#ED9A22', 3: '#FFD380', 4: '#D9B6D6' }
         # to list
         colors = [color_dict[label.item()] for label in labels]
 
@@ -199,7 +200,7 @@ def get_model_instance_segmentation(num_classes, pretrained='MaskRCNN_ResNet50_F
                         posweights=posweights # implemented in site_packages, python lib, envs
                         )
     # note: you can pass all **kwargs that can be passed to MaskRCNN as well!
-    # from C:\Users\ch20s351\Anaconda3\envs\pytorch\Lib\site-packages\torchvision\models\detection\mask_rcnn.py
+    # from C:\Users\USERNAME\Anaconda3\envs\pytorch\Lib\site-packages\torchvision\models\detection\mask_rcnn.py
     # model = MaskRCNN(backbone, num_classes, **kwargs)
 
     # get number of input features for the classifier
@@ -1419,7 +1420,10 @@ class LineaMapper():
         print('merged!')
 
         # display predictions and save to img
-        # self.display_preview(self.merged_pred, '_' + str(self.sidx) + '_merged_preview.pdf')
+        # this only works for images that are not cut. therefore, test:
+        if np.max(self.arr.shape) < self.psags.cut_size:
+            print('I will do a preview image.')
+            self.display_preview(self.merged_pred, '_' + str(self.sidx) + '_merged_preview.pdf')
 
         # save merged_pred to pickle file
         if self.pickle:
