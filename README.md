@@ -1,9 +1,14 @@
 #### Code used for publication XX (subm. to PSJ)
 
-## Demo: test the interactive LineaMapper v2.0
- **Try it directly online on Google Colab.
+## Demos
+Test the interactive LineaMapper v2.0 and get full georeferenced predictions with all versions of LineaMapper
 
-Code and data are published on Mendeley Data:https: //data.mendeley.com/datasets/rjhsjrnxgv/1
+ Bounding Box Demo: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/javirk/europa_surface/blob/revert_fixed/DEMO_draw_box_to_mask.ipynb)
+ 
+ LineaMapper georeferenced predictions: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/javirk/europa_surface/blob/revert_fixed/DEMO_apply_LineaMapper.ipynb)
+
+
+Code and data are published on Mendeley Data: https://data.mendeley.com/datasets/rjhsjrnxgv/1
 
 You need to install GDAL on your machine (not only in the python environment), for example from here https://trac.osgeo.org/osgeo4w/. Otherwise, the requirements_full.txt should work 
 
