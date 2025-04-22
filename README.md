@@ -1,7 +1,8 @@
 #### Code used for publication XX (subm. to PSJ)
 
 ## Demo: test the interactive LineaMapper v2.0
- **Try it directly online on Google Colab.
+ **Try it directly online on Google Colab. **
+ [![Open Bounding Box Demo In Colab](https://colab.research.google.com/assets/colab-badge.svg)]([https://colab.research.google.com/github/weiji14/deepbedmap/](https://colab.research.google.com/github/javirk/europa_surface/blob/revert_fixed/DEMO_draw_box_to_mask.ipynb)]
 
 Code and data are published on Mendeley Data:https: //data.mendeley.com/datasets/rjhsjrnxgv/1
 
