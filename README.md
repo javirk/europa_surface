@@ -33,6 +33,7 @@ Use python 3.12 or 3.13 for the installation. For example, use:
 
 Then, install the required packages with pip:
 > pip install -r requirements.txt
+
 Or use:
 > pip install -r requirements_full.txt
 
