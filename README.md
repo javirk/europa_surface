@@ -1,6 +1,6 @@
-#### Code used for publication XX (subm. to PSJ)
+## Code used in publication ['Length, Width, and Relative Age Analysis of Lineaments in the Galileo Regional Maps with LineaMapper', PSJ, 2025](https://iopscience.iop.org/article/10.3847/PSJ/add349)
 
-## Demos
+### Demos
 Test the interactive LineaMapper v2.0 and get full georeferenced predictions with all versions of LineaMapper
 
  Bounding Box Demo: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/javirk/europa_surface/blob/revert_fixed/DEMO_draw_box_to_mask.ipynb)
