@@ -50,5 +50,7 @@ Install pycocotools with
 
 if on Colab, try:
 > !git clone -b cocoeval_for_multiple_categories https://github.com/CarolineHaslebacher/cocoapi.git
+> %cd cocoapi
+> !pip install ./PythonAPI
 
 
