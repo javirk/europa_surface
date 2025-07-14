@@ -48,4 +48,7 @@ Install pycocotools with
 > 
 (works on Windows *only* with /common/ folder copied into PythonAPI)
 
+if on Colab, try:
+> !git clone -b cocoeval_for_multiple_categories https://github.com/CarolineHaslebacher/cocoapi.git
+
 
